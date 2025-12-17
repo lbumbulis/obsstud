@@ -102,11 +102,14 @@ P.fn <- function(tt, cc, v, w) {
 ###### SIMULATION PARAMETERS ##########
 
 R <- 1000  # size of partition of [0,tau)
-n <- 10000 # sample size
+n <- 1000 # sample size
+
+nsim <- 1000 # number of simulation replicates
 
 ###### DATA GENERATION ################
 
 get.E.for.state <- function(state) {
+  # -1 represents 0^\circ
   ifelse(state %in% c(1,4), -1, ifelse(state %in% c(2,5), 1, 0))
 }
 get.N.for.state <- function(state) {
@@ -118,16 +121,17 @@ generate.data <- function() {
   v.full <- rbinom(n, size=1, prob=pv)
   w.full <- rbinom(n, size=1, prob=pi.w)
   
-  init0 <- rep(c(0, rep(NA, R-1)), times=n)
   dat <- data.frame(
     i = rep(1:n, each=R),
     v = rep(v.full, each=R),
     w = rep(w.full, each=R),
     r = rep(1:R, times=n),
     u = rep(u, times=n),
-    E = rep(c(-1, rep(NA, R-1)), times=n), # -1 represents 0^\circ
-    N.bar = init0,
-    c = init0
+    E = NA,
+    N.bar = NA,
+    state.prev = NA,
+    state = NA,
+    c = NA
   )
   
   P.onset00 <- t(sapply(1:R, function(r) {
@@ -143,7 +147,7 @@ generate.data <- function() {
     P.fn(u[r], cc=0, v=1, w=1)[1,]
   }))
   
-  sapply(1:n, function(i) {
+  system.time(sapply(1:n, function(i) {
     print(paste0(Sys.time(), ": ", i))
     idx <- which(dat$i==i)
     v <- dat$v[idx[1]]
@@ -170,6 +174,8 @@ generate.data <- function() {
       pre.onset.idx <- idx[1:(onset.idx-1)]
       dat$E[pre.onset.idx] <<- -1
       dat$N.bar[pre.onset.idx] <<- 0
+      dat$state.prev[pre.onset.idx] <<- 1
+      dat$state[pre.onset.idx] <<- 1
       dat$c[pre.onset.idx] <<- 0
       
       E.prev <- get.E.for.state(onset.state)
@@ -180,6 +186,8 @@ generate.data <- function() {
       at.onset.idx <- idx[onset.idx]
       dat$E[at.onset.idx] <<- E.prev
       dat$N.bar[at.onset.idx] <<- N.bar
+      dat$state.prev[at.onset.idx] <<- 1
+      dat$state[at.onset.idx] <<- state.prev
       dat$c[at.onset.idx] <<- c.prev
       
       r <- onset.idx + 1
@@ -192,6 +200,8 @@ generate.data <- function() {
         
         dat$E[idx[r]] <<- E
         dat$N.bar[idx[r]] <<- N.bar
+        dat$state.prev[idx[r]] <<- state.prev
+        dat$state[idx[r]] <<- state
         dat$c[idx[r]] <<- c
         
         E.prev <- E
@@ -200,14 +210,29 @@ generate.data <- function() {
         r <- r+1
       } # on average, should usually take < 3min for n=10 (< 1h for n=10,000)
       
+      if (exists("E")) {
+        post.fail.idx <- idx[r:R]
+      } else if (onset.idx < R) {
+        post.fail.idx <- idx[(onset.idx+1):R]
+      }
+      if (exists("post.fail.idx")) {
+        dat$E[post.fail.idx] <<- ifelse(exists("E"), E, -1)
+        dat$N.bar[post.fail.idx] <<- 1
+        dat$state.prev[post.fail.idx] <<- ifelse(exists("E"), state, 4)
+        dat$state[post.fail.idx] <<- ifelse(exists("E"), state, 4)
+        dat$c[post.fail.idx] <<- ifelse(exists("E"), c, 0)
+      }
+      
     } else {
       dat$E[idx] <<- -1
       dat$N.bar[idx] <<- 0
+      dat$state.prev[idx] <<- 1
+      dat$state[idx] <<- 1
       dat$c[idx] <<- 0
     }
-  })
+  }))
   
-  dat <- dat[which(!is.na(dat$E)),]
+  # dat <- dat[which(!is.na(dat$E)),]
   dat$u.prev <- dat$u - 1/R
   
   return(dat)
