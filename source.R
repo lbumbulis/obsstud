@@ -208,7 +208,7 @@ generate.data <- function() {
         c.prev <- c
         state.prev <- state
         r <- r+1
-      } # on average, should usually take < 3min for n=10 (< 1h for n=10,000)
+      }
       
       if (exists("E")) {
         post.fail.idx <- idx[r:R]

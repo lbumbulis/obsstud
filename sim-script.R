@@ -13,7 +13,7 @@ print(paste0(Sys.time(), ": Generating the data"))
 
 .Random.seed <- sim.seeds[[r]]
 
-dat <- generate.data()
+dat <- generate.data() # for n=1000, usually takes about 30min, sometimes as long as 90min
 
 
 
