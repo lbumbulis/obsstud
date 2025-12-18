@@ -2,7 +2,7 @@
 args <- commandArgs(trailingOnly=TRUE)
 r <- as.numeric(args[1])
 
-# library(survival)
+library(survival)
 
 source("source.R")
 sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
@@ -13,7 +13,7 @@ print(paste0(Sys.time(), ": Generating the data"))
 
 .Random.seed <- sim.seeds[[r]]
 
-dat <- generate.data() # for n=1000, usually takes about 30min, sometimes as long as 90min
+system.time(dat <- generate.data()) # takes < 5min
 
 
 
@@ -33,7 +33,44 @@ smoke.dur <- aggregate(
 
 save(
   v.full, w.full, state.occupancy, transition.count, smoke.dur,
-  file = paste0("data_features_iter", r, ".RData")
+  file = paste0("./data_features/data_features_iter", r, ".RData")
 )
 
+if (r==1) {
+  saveRDS(dat, file="test_dat_iter1.rds")
+}
+
+
+
+print(paste0(Sys.time(), ": Starting Poisson analysis"))
+
+## Poisson analysis
+system.time(m.pois <- glm(
+  N.bar ~ -1 + factor(r) + v + c,
+  data = dat,
+  subset = (state.prev <= 3),
+  family = poisson
+))
+
+# est.pois <- coef(m.pois)
+# vcov.pois <- sandwich::vcovHC(m.pois, type="HC0") # robust variance
+
+saveRDS(m.pois, file=paste0("./models/mpois_iter", r, ".rds"))
+
+
+
+print(paste0(Sys.time(), ": Starting Cox analysis"))
+
+## Cox analysis
+system.time(m.cox <- coxph(
+  Surv(u.prev, u, N.bar) ~ v + c,
+  data = dat, subset = (state.prev <= 3),
+  method = "breslow"
+))
+# Takes a few seconds
+
+# est.cox <- coef(m.cox)
+# vcov.cox <- vcov(m.cox)
+
+saveRDS(m.cox, file=paste0("./models/mcox_iter", r, ".rds"))
 

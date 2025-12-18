@@ -3,6 +3,9 @@ library(ggplot2)
 
 source("source.R")
 
+###############################################################################
+# DATA FEATURES
+###############################################################################
 attempt <- 3
 
 ###### State occupancy ################
@@ -39,6 +42,7 @@ ggplot(plot.dat, aes(x=r, y=Freq, group=state, col=state, linetype=is.cancer)) +
     panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
     legend.key.size=unit(1.5, "lines")
   )
+# state_occupancy.png; width=500, height=350
 
 ###### Quit attempts ##################
 all.transition.count <- lapply(1:nsim, function(iter) {
@@ -65,7 +69,7 @@ quit.dat <- sapply(1:length(all.transition.count), function(iter) {
     }
   }), na.rm=T)
 })
-hist(quit.dat, xlab="mean # quit attempts", main="")
+hist(quit.dat, xlab="mean # quit attempts", main="") # nquit_hist.png; width=500, height=400
 mean(quit.dat) # 0.912
 
 ###### Smoking duration ###############
@@ -86,6 +90,61 @@ dur.dat <- sapply(1:length(all.smoke.dur), function(iter) {
   temp <- all.smoke.dur[[iter]]
   mean(temp$c[which(temp$c > 0)])
 })
-hist(dur.dat, xlab="mean smoking duration", main="")
+hist(dur.dat, xlab="mean smoking duration", main="") # smokedur_hist.png; width=500, height=400
 mean(dur.dat) # 0.330
+
+###############################################################################
+# POISSON RESULTS
+###############################################################################
+attempt <- 4
+
+all.mpois <- lapply(1:nsim, function(iter) {
+  filename <- paste0("./sim-results/attempt", attempt, "/mpois_iter", iter, ".rds")
+  if (file.exists(filename)) {
+    return(readRDS(filename))
+  } else {
+    print(paste0("Warning: file for iter ", iter, " does not exist"))
+    return(NULL)
+  }
+})
+all.mpois <- Filter(Negate(is.null), all.mpois)
+
+thetahat.pois <- as.data.frame(t(sapply(1:length(all.mpois), function(iter) {
+  est <- coef(all.mpois[[iter]])
+  return(est[length(est)-(1:0)])
+})))
+names(thetahat.pois) <- c("alpha1","beta1")
+plot(beta1 ~ alpha1, data=thetahat.pois)
+abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
+abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
+abline(v=alpha1, col="red", lty=2, lwd=2)
+abline(h=beta1, col="red", lty=2, lwd=2)
+
+###############################################################################
+# COX RESULTS
+###############################################################################
+attempt <- 4
+
+all.mcox <- lapply(1:nsim, function(iter) {
+  filename <- paste0("./sim-results/attempt", attempt, "/mcox_iter", iter, ".rds")
+  if (file.exists(filename)) {
+    return(readRDS(filename))
+  } else {
+    print(paste0("Warning: file for iter ", iter, " does not exist"))
+    return(NULL)
+  }
+})
+all.mcox <- Filter(Negate(is.null), all.mcox)
+
+thetahat.cox <- as.data.frame(t(sapply(1:length(all.mcox), function(iter) {
+  est <- coef(all.mcox[[iter]])
+  return(est[length(est)-(1:0)])
+})))
+names(thetahat.cox) <- c("alpha1","beta1")
+plot(beta1 ~ alpha1, data=thetahat.cox)
+abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
+abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
+abline(v=alpha1, col="red", lty=2, lwd=2)
+abline(h=beta1, col="red", lty=2, lwd=2)
+
 

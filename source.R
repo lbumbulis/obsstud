@@ -116,6 +116,14 @@ get.N.for.state <- function(state) {
   as.numeric(state >= 4)
 }
 
+# P is a matrix with one column for each state and one row for each time point
+# (i.e., vector of multinomial probabilities)
+my.rmultinom <- function(P) {
+  unif <- runif(nrow(P))
+  cumP <- t(apply(P, 1, cumsum))
+  return(max.col(cumP >= unif, ties.method="first"))
+}
+
 generate.data <- function() {
   u <- (1:R)/R
   v.full <- rbinom(n, size=1, prob=pv)
@@ -134,18 +142,18 @@ generate.data <- function() {
     c = NA
   )
   
-  P.onset00 <- t(sapply(1:R, function(r) {
-    P.fn(u[r], cc=0, v=0, w=0)[1,]
-  }))
-  P.onset01 <- t(sapply(1:R, function(r) {
-    P.fn(u[r], cc=0, v=0, w=1)[1,]
-  }))
-  P.onset10 <- t(sapply(1:R, function(r) {
-    P.fn(u[r], cc=0, v=1, w=0)[1,]
-  }))
-  P.onset11 <- t(sapply(1:R, function(r) {
-    P.fn(u[r], cc=0, v=1, w=1)[1,]
-  }))
+  P.onset00 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=0, w=0)[1,] }))
+  P.onset01 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=0, w=1)[1,] }))
+  P.onset10 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=1, w=0)[1,] }))
+  P.onset11 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=1, w=1)[1,] }))
+  
+  fill.dat <- function(idxx, E, N.bar, state.prev, state, cc) {
+    dat$E[idxx] <<- E
+    dat$N.bar[idxx] <<- N.bar
+    dat$state.prev[idxx] <<- state.prev
+    dat$state[idxx] <<- state
+    dat$c[idxx] <<- cc
+  }
   
   system.time(sapply(1:n, function(i) {
     print(paste0(Sys.time(), ": ", i))
@@ -154,7 +162,6 @@ generate.data <- function() {
     w <- dat$w[idx[1]]
     
     # Multinomial draws via inverse CDF method, to determine 1st time when not in (0^\circ, 0)
-    unif <- runif(R)
     if (v==0 && w==0) {
       P <- P.onset00
     } else if (v==0 && w==1) {
@@ -164,75 +171,120 @@ generate.data <- function() {
     } else if (v==1 && w==1) {
       P <- P.onset11
     }
-    cumP <- t(apply(P, 1, cumsum))
-    onset.states <- max.col(cumP >= unif, ties.method="first")
+    onset.states <- my.rmultinom(P) # 1=(0^\circ,0), 2=(1,0), 3=(0,0), 4=(0^\circ,1), 5=(1,1), 6=(0,1)
     
+    # If the person ever leaves state (0^\circ, 0) ...
     if (any(onset.states!=1)) {
       onset.idx <- min(which(onset.states!=1)) # 1st time when not in (0^\circ, 0)
       onset.state <- onset.states[onset.idx]   # state occupied at that time
       
-      pre.onset.idx <- idx[1:(onset.idx-1)]
-      dat$E[pre.onset.idx] <<- -1
-      dat$N.bar[pre.onset.idx] <<- 0
-      dat$state.prev[pre.onset.idx] <<- 1
-      dat$state[pre.onset.idx] <<- 1
-      dat$c[pre.onset.idx] <<- 0
+      if (onset.idx > 1) {
+        fill.dat(idx[1:(onset.idx-1)], E=-1, N.bar=0, state.prev=1, state=1, cc=0)
+      }
       
       E.prev <- get.E.for.state(onset.state)
       N.bar <- get.N.for.state(onset.state)
-      c.prev <- as.numeric(E.prev == 1)/R
-      state.prev <- onset.state # 1=(0^\circ,0), 2=(1,0), 3=(0,0), 4=(0^\circ,1), 5=(1,1), 6=(0,1)
+      c.prev <- 0
+      state.prev <- onset.state
       
-      at.onset.idx <- idx[onset.idx]
-      dat$E[at.onset.idx] <<- E.prev
-      dat$N.bar[at.onset.idx] <<- N.bar
-      dat$state.prev[at.onset.idx] <<- 1
-      dat$state[at.onset.idx] <<- state.prev
-      dat$c[at.onset.idx] <<- c.prev
+      fill.dat(idx[onset.idx], E=E.prev, N.bar=N.bar, state.prev=1, state=state.prev, cc=c.prev)
       
       r <- onset.idx + 1
       while (N.bar==0 && r <= R) {
-        P <- P.fn(u[r], c.prev, v, w)
-        state <- sample(ncol(P), size=1, prob=P[state.prev,])
-        E <- ifelse(state %in% c(1,4), -1, ifelse(state %in% c(2,5), 1, 0))
-        N.bar <- as.numeric(state >= 4)
-        c <- c.prev + as.numeric(E == 1)/R
-        
-        dat$E[idx[r]] <<- E
-        dat$N.bar[idx[r]] <<- N.bar
-        dat$state.prev[idx[r]] <<- state.prev
-        dat$state[idx[r]] <<- state
-        dat$c[idx[r]] <<- c
-        
-        E.prev <- E
-        c.prev <- c
-        state.prev <- state
-        r <- r+1
+        # If previous state is (1,0) ...
+        if (state.prev==2) {
+          P.exit <- t(sapply(r:R, function(rr) {
+            P.fn(u[rr], cc=c.prev+(rr-r+1)/R, v=v, w=1)[state.prev,]
+          }))
+          exit.states <- my.rmultinom(P.exit)
+          
+          if (any(exit.states != state.prev)) {
+            exit.idx <- min(which(exit.states != state.prev)) # next time when not in (1,0)
+            exit.state <- exit.states[exit.idx]               # state occupied at that time
+            
+            if (exit.idx > 1) {
+              fill.dat(
+                idx[r:(r+exit.idx-2)],
+                E=1, N.bar=0, state.prev=2, state=2,
+                c = c.prev + seq(1/R, by=1/R, length.out=exit.idx-1)
+              )
+            }
+            
+            E.prev <- get.E.for.state(exit.state)
+            N.bar <- get.N.for.state(exit.state)
+            c.prev <- c.prev + exit.idx/R
+            state.prev <- exit.state
+            
+            fill.dat(
+              idx[r+exit.idx-1],
+              E = E.prev,
+              N.bar = N.bar,
+              state.prev = 2,
+              state = state.prev,
+              c = c.prev
+            )
+            
+            r <- r + exit.idx
+          } else {
+            break
+          }
+        # ... else if previous state is (0,0) ...
+        } else if (state.prev==3) {
+          P.exit <- t(sapply(r:R, function(rr) {
+            P.fn(u[rr], cc=c.prev, v=v, w=1)[state.prev,]
+          }))
+          exit.states <- my.rmultinom(P.exit)
+          
+          if (any(exit.states != state.prev)) {
+            exit.idx <- min(which(exit.states != state.prev)) # next time when not in (0,0)
+            exit.state <- exit.states[exit.idx]               # state occupied at that time
+            
+            if (exit.idx > 1) {
+              fill.dat(idx[r:(r+exit.idx-2)], E=0, N.bar=0, state.prev=3, state=3, c=c.prev)
+            }
+            
+            E.prev <- get.E.for.state(exit.state)
+            N.bar <- get.N.for.state(exit.state)
+            state.prev <- exit.state
+            
+            fill.dat(
+              idx[r+exit.idx-1],
+              E = E.prev,
+              N.bar = N.bar,
+              state.prev = 3,
+              state = state.prev,
+              c = c.prev
+            )
+            
+            r <- r + exit.idx
+          } else {
+            break
+          }
+        } else { stop() }
       }
       
-      if (exists("E")) {
-        post.fail.idx <- idx[r:R]
-      } else if (onset.idx < R) {
-        post.fail.idx <- idx[(onset.idx+1):R]
-      }
-      if (exists("post.fail.idx")) {
-        dat$E[post.fail.idx] <<- ifelse(exists("E"), E, -1)
-        dat$N.bar[post.fail.idx] <<- 1
-        dat$state.prev[post.fail.idx] <<- ifelse(exists("E"), state, 4)
-        dat$state[post.fail.idx] <<- ifelse(exists("E"), state, 4)
-        dat$c[post.fail.idx] <<- ifelse(exists("E"), c, 0)
+      # Current state is never exited; fill in remaining times accordingly
+      if (r <= R) {
+        if (E.prev==1) {
+          c.vec <- c.prev + seq(1/R, by=1/R, length.out=R-r+1)
+        } else {
+          c.vec <- c.prev
+        }
+        fill.dat(
+          idx[r:R],
+          E = E.prev,
+          N.bar = N.bar,
+          state.prev = state.prev,
+          state = state.prev,
+          cc = c.vec
+        )
       }
       
     } else {
-      dat$E[idx] <<- -1
-      dat$N.bar[idx] <<- 0
-      dat$state.prev[idx] <<- 1
-      dat$state[idx] <<- 1
-      dat$c[idx] <<- 0
+      fill.dat(idx, E=-1, N.bar=0, state.prev=1, state=1, cc=0)
     }
   }))
   
-  # dat <- dat[which(!is.na(dat$E)),]
   dat$u.prev <- dat$u - 1/R
   
   return(dat)
