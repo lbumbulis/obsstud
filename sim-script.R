@@ -52,10 +52,18 @@ system.time(m.pois <- glm(
   family = poisson
 ))
 
-# est.pois <- coef(m.pois)
+est.pois <- coef(m.pois)
 # vcov.pois <- sandwich::vcovHC(m.pois, type="HC0") # robust variance
 
-saveRDS(m.pois, file=paste0("./models/mpois_iter", r, ".rds"))
+est.pois.filename <- "mpois_est.csv"
+
+write.table(
+  cbind(iter=r, t(est.pois)), file=est.pois.filename,
+  append=file.exists(est.pois.filename), quote=F, sep=",",
+  row.names=F, col.names=!file.exists(est.pois.filename)
+)
+
+# saveRDS(m.pois, file=paste0("./models/mpois_iter", r, ".rds"))
 
 
 
@@ -69,8 +77,23 @@ system.time(m.cox <- coxph(
 ))
 # Takes a few seconds
 
-# est.cox <- coef(m.cox)
-# vcov.cox <- vcov(m.cox)
+est.cox <- coef(m.cox)
+var.cox <- diag(vcov(m.cox))
 
-saveRDS(m.cox, file=paste0("./models/mcox_iter", r, ".rds"))
+est.cox.filename <- "mcox_est.csv"
+var.cox.filename <- "mcox_var.csv"
+
+write.table(
+  cbind(iter=r, t(est.cox)), file=est.cox.filename,
+  append=file.exists(est.cox.filename), quote=F, sep=",",
+  row.names=F, col.names=!file.exists(est.cox.filename)
+)
+
+write.table(
+  cbind(iter=r, t(var.cox)), file=var.cox.filename,
+  append=file.exists(var.cox.filename), quote=F, sep=",",
+  row.names=F, col.names=!file.exists(var.cox.filename)
+)
+
+# saveRDS(m.cox, file=paste0("./models/mcox_iter", r, ".rds"))
 

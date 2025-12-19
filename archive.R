@@ -115,3 +115,37 @@ generate.data <- function() {
 }
 
 
+all.mpois <- lapply(1:nsim, function(iter) {
+  filename <- paste0("./sim-results/attempt", attempt, "/mpois_iter", iter, ".rds")
+  if (file.exists(filename)) {
+    return(readRDS(filename))
+  } else {
+    print(paste0("Warning: file for iter ", iter, " does not exist"))
+    return(NULL)
+  }
+})
+all.mpois <- Filter(Negate(is.null), all.mpois)
+
+thetahat.pois <- as.data.frame(t(sapply(1:length(all.mpois), function(iter) {
+  est <- coef(all.mpois[[iter]])
+  return(est[length(est)-(1:0)])
+})))
+
+
+all.mcox <- lapply(1:nsim, function(iter) {
+  filename <- paste0("./sim-results/attempt", attempt, "/mcox_iter", iter, ".rds")
+  if (file.exists(filename)) {
+    return(readRDS(filename))
+  } else {
+    print(paste0("Warning: file for iter ", iter, " does not exist"))
+    return(NULL)
+  }
+})
+all.mcox <- Filter(Negate(is.null), all.mcox)
+
+thetahat.cox <- as.data.frame(t(sapply(1:length(all.mcox), function(iter) {
+  est <- coef(all.mcox[[iter]])
+  return(est[length(est)-(1:0)])
+})))
+
+

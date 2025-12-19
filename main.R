@@ -94,53 +94,24 @@ hist(dur.dat, xlab="mean smoking duration", main="") # smokedur_hist.png; width=
 mean(dur.dat) # 0.330
 
 ###############################################################################
-# POISSON RESULTS
+# MODELLING RESULTS
 ###############################################################################
 attempt <- 4
 
-all.mpois <- lapply(1:nsim, function(iter) {
-  filename <- paste0("./sim-results/attempt", attempt, "/mpois_iter", iter, ".rds")
-  if (file.exists(filename)) {
-    return(readRDS(filename))
-  } else {
-    print(paste0("Warning: file for iter ", iter, " does not exist"))
-    return(NULL)
-  }
-})
-all.mpois <- Filter(Negate(is.null), all.mpois)
-
-thetahat.pois <- as.data.frame(t(sapply(1:length(all.mpois), function(iter) {
-  est <- coef(all.mpois[[iter]])
-  return(est[length(est)-(1:0)])
-})))
+## Poisson
+thetahat.pois <- read.csv(paste0("./sim-results/attempt", attempt, "/mpois_est.csv"))
 names(thetahat.pois) <- c("alpha1","beta1")
+
 plot(beta1 ~ alpha1, data=thetahat.pois)
 abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
 abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
 abline(v=alpha1, col="red", lty=2, lwd=2)
 abline(h=beta1, col="red", lty=2, lwd=2)
 
-###############################################################################
-# COX RESULTS
-###############################################################################
-attempt <- 4
-
-all.mcox <- lapply(1:nsim, function(iter) {
-  filename <- paste0("./sim-results/attempt", attempt, "/mcox_iter", iter, ".rds")
-  if (file.exists(filename)) {
-    return(readRDS(filename))
-  } else {
-    print(paste0("Warning: file for iter ", iter, " does not exist"))
-    return(NULL)
-  }
-})
-all.mcox <- Filter(Negate(is.null), all.mcox)
-
-thetahat.cox <- as.data.frame(t(sapply(1:length(all.mcox), function(iter) {
-  est <- coef(all.mcox[[iter]])
-  return(est[length(est)-(1:0)])
-})))
+## Cox
+thetahat.cox <- read.csv(paste0("./sim-results/attempt", attempt, "/mcox_est.csv"))
 names(thetahat.cox) <- c("alpha1","beta1")
+
 plot(beta1 ~ alpha1, data=thetahat.cox)
 abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
 abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
