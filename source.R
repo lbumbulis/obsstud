@@ -265,7 +265,7 @@ generate.data <- function() {
       
       # Current state is never exited; fill in remaining times accordingly
       if (r <= R) {
-        if (E.prev==1) {
+        if (E.prev==1 && N.bar==0) {
           c.vec <- c.prev + seq(1/R, by=1/R, length.out=R-r+1)
         } else {
           c.vec <- c.prev

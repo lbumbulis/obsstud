@@ -53,6 +53,12 @@ system.time(m.pois <- glm(
 ))
 
 est.pois <- coef(m.pois)
+nparam <- length(est.pois)
+est.pois <- c(
+  est.pois[1:(nparam-2)],
+  rep(NA, R-(nparam-2)),
+  est.pois[nparam - (1:0)]
+)
 # vcov.pois <- sandwich::vcovHC(m.pois, type="HC0") # robust variance
 
 est.pois.filename <- "mpois_est.csv"

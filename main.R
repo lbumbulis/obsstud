@@ -6,7 +6,8 @@ source("source.R")
 ###############################################################################
 # DATA FEATURES
 ###############################################################################
-attempt <- 3
+attempt <- 6 # fast data generation
+# attempt <- 7 # slow data generation
 
 ###### State occupancy ################
 all.state.occupancy <- lapply(1:nsim, function(iter) {
@@ -70,7 +71,7 @@ quit.dat <- sapply(1:length(all.transition.count), function(iter) {
   }), na.rm=T)
 })
 hist(quit.dat, xlab="mean # quit attempts", main="") # nquit_hist.png; width=500, height=400
-mean(quit.dat) # 0.912
+mean(quit.dat) # 0.922
 
 ###### Smoking duration ###############
 all.smoke.dur <- lapply(1:nsim, function(iter) {
@@ -91,28 +92,33 @@ dur.dat <- sapply(1:length(all.smoke.dur), function(iter) {
   mean(temp$c[which(temp$c > 0)])
 })
 hist(dur.dat, xlab="mean smoking duration", main="") # smokedur_hist.png; width=500, height=400
-mean(dur.dat) # 0.330
+mean(dur.dat) # 0.332
 
 ###############################################################################
 # MODELLING RESULTS
 ###############################################################################
-attempt <- 4
+attempt <- 6 # fast data generation
+# attempt <- 7 # slow data generation
+
+xlimits <- c(-0.05, 0.45)
+ylimits <- c(2, 3.6)
 
 ## Poisson
 thetahat.pois <- read.csv(paste0("./sim-results/attempt", attempt, "/mpois_est.csv"))
-names(thetahat.pois) <- c("alpha1","beta1")
+thetahat.pois <- thetahat.pois[, c(1, ncol(thetahat.pois) - 1:0)]
+names(thetahat.pois) <- c("iter","alpha1","beta1")
 
-plot(beta1 ~ alpha1, data=thetahat.pois)
-abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
-abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
+plot(beta1 ~ alpha1, data=thetahat.pois, xlim=xlimits, ylim=ylimits)
+abline(v=mean(thetahat.pois$alpha1), lty=2, lwd=2)
+abline(h=mean(thetahat.pois$beta1), lty=2, lwd=2)
 abline(v=alpha1, col="red", lty=2, lwd=2)
 abline(h=beta1, col="red", lty=2, lwd=2)
 
 ## Cox
 thetahat.cox <- read.csv(paste0("./sim-results/attempt", attempt, "/mcox_est.csv"))
-names(thetahat.cox) <- c("alpha1","beta1")
+names(thetahat.cox) <- c("iter","alpha1","beta1")
 
-plot(beta1 ~ alpha1, data=thetahat.cox)
+plot(beta1 ~ alpha1, data=thetahat.cox, xlim=xlimits, ylim=ylimits)
 abline(v=mean(thetahat.cox$alpha1), lty=2, lwd=2)
 abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
 abline(v=alpha1, col="red", lty=2, lwd=2)
