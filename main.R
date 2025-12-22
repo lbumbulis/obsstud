@@ -6,8 +6,9 @@ source("source.R")
 ###############################################################################
 # DATA FEATURES
 ###############################################################################
-attempt <- 6 # fast data generation
+# attempt <- 6 # discrete-time fast data generation
 # attempt <- 7 # slow data generation
+attempt <- 8 # continuous-time fast data generation
 
 ###### State occupancy ################
 all.state.occupancy <- lapply(1:nsim, function(iter) {
@@ -71,7 +72,7 @@ quit.dat <- sapply(1:length(all.transition.count), function(iter) {
   }), na.rm=T)
 })
 hist(quit.dat, xlab="mean # quit attempts", main="") # nquit_hist.png; width=500, height=400
-mean(quit.dat) # 0.922
+mean(quit.dat) # attempt 6: 0.922, attempt 7: 0.915, attempt 8: 0.919
 
 ###### Smoking duration ###############
 all.smoke.dur <- lapply(1:nsim, function(iter) {
@@ -86,19 +87,36 @@ all.smoke.dur <- lapply(1:nsim, function(iter) {
 })
 all.smoke.dur <- Filter(Negate(is.null), all.smoke.dur)
 
-# Mean pre-failure smoking duration among ever-smokers
-dur.dat <- sapply(1:length(all.smoke.dur), function(iter) {
-  temp <- all.smoke.dur[[iter]]
-  mean(temp$c[which(temp$c > 0)])
-})
-hist(dur.dat, xlab="mean smoking duration", main="") # smokedur_hist.png; width=500, height=400
-mean(dur.dat) # 0.332
+if (attempt <= 7) {
+  # Mean (pre-failure) smoking duration among ever-smokers
+  dur.dat <- sapply(1:length(all.smoke.dur), function(iter) {
+    temp <- all.smoke.dur[[iter]]
+    mean(temp$c[which(temp$c > 0)])
+  })
+  hist(dur.dat, xlab="mean smoking duration", main="") # smokedur_hist.png; width=500, height=400
+  mean(dur.dat) # attempt 6: 0.332, attempt 7: 0.330
+} else {
+  plot.dat2 <- as.data.frame(Reduce("+", all.smoke.dur) / length(all.smoke.dur))
+  
+  plot(
+    c ~ r, data=plot.dat2, type="l", ylim=c(0,1), ylab="",
+    main = expression(atop("Empirical mean cumulative exposure", "and failure probability (w = 1)"))
+  )
+  lines(N.bar ~ r, data=plot.dat2, col="red")
+  legend(
+    "topleft", lty=1, col=c("black","red"),
+    legend = c(expression("Mean" ~ c[r]), "Failure probability")
+  )
+  
+  plot.dat2$c[which(plot.dat2$r==R)] # attempt 8: 0.327
+}
 
 ###############################################################################
 # MODELLING RESULTS
 ###############################################################################
-attempt <- 6 # fast data generation
+# attempt <- 6 # discrete-time fast data generation
 # attempt <- 7 # slow data generation
+attempt <- 8 # continuous-time fast data generation
 
 xlimits <- c(-0.05, 0.45)
 ylimits <- c(2, 3.6)
@@ -124,4 +142,16 @@ abline(h=mean(thetahat.cox$beta1), lty=2, lwd=2)
 abline(v=alpha1, col="red", lty=2, lwd=2)
 abline(h=beta1, col="red", lty=2, lwd=2)
 
+
+## Checking variance estimates
+var.pois <- read.csv(paste0("./sim-results/attempt", attempt, "/mpois_var.csv"))
+var.pois <- var.pois[, c(1, ncol(var.pois) - 1:0)]
+names(var.pois) <- c("iter","alpha1","beta1")
+apply(thetahat.pois[,2:3], 2, sd)
+apply(sqrt(var.pois[,2:3]), 2, mean)
+
+var.cox <- read.csv(paste0("./sim-results/attempt", attempt, "/mcox_var.csv"))
+names(var.cox) <- c("iter","alpha1","beta1")
+apply(thetahat.cox[,2:3], 2, sd)
+apply(sqrt(var.cox[,2:3]), 2, mean)
 

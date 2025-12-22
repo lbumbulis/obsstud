@@ -124,6 +124,91 @@ my.rmultinom <- function(P) {
   return(max.col(cumP >= unif, ties.method="first"))
 }
 
+get.exit.info <- function(start.r, c.prev, v, state.prev) {
+  if (state.prev==2) {
+    P.exit <- t(sapply(start.r:R, function(rr) {
+      P.fn(rr/R, cc=c.prev+(rr-start.r+1)/R, v=v, w=1)[state.prev,]
+    }))
+  } else if (state.prev==3) {
+    P.exit <- t(sapply(start.r:R, function(rr) {
+      P.fn(rr/R, cc=c.prev, v=v, w=1)[state.prev,]
+    }))
+  }
+  exit.states <- my.rmultinom(P.exit)
+  
+  if (any(exit.states != state.prev)) {
+    is.exit <- T
+    exit.idx <- min(which(exit.states != state.prev)) # next time when not in current state
+    exit.state <- exit.states[exit.idx]               # state occupied at that time
+  } else {
+    is.exit <- F
+    exit.idx <- exit.state <- NA
+  }
+  return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
+}
+
+get.exit.info.cts <- function(start.r, c.prev, v, state.prev) {
+  surv.prob <- runif(1)
+  if (state.prev == 2) {
+    lam.nonfail <- lam.e00 * exp(eta0*v) # quit intensity
+  } else if (state.prev == 3) {
+    lam.nonfail <- lam.e10 * exp(eta1*v) # relapse intensity
+  }
+  
+  # Determine exit time
+  if (state.prev == 2) {
+    integrate.fn <- Vectorize(function(u) {
+      lam10.fn(u) * exp(beta1*u)
+    })
+    uniroot.fn <- function(s) {
+      exp(
+        -integrate(integrate.fn, lower=start.r/R, upper=start.r/R+s)$value *
+          exp(alpha1*v + beta1*(c.prev-start.r/R)) -
+          lam.nonfail * s
+      ) - surv.prob
+    }
+  } else if (state.prev == 3) {
+    uniroot.fn <- function(s) {
+      exp(
+        -(integrate(lam10.fn, lower=start.r/R, upper=start.r/R+s)$value *
+            exp(alpha1*v + beta1*c.prev)) -
+          lam.nonfail * s
+      ) - surv.prob
+    }
+  }
+  exit.time <- start.r/R + uniroot(uniroot.fn, interval=c(0, 2))$root
+  
+  if (exit.time > tau) {
+    is.exit <- F
+    exit.idx <- exit.state <- NA
+  } else {
+    is.exit <- T
+    
+    # Determine exit state
+    c.exit <- c.prev
+    if (state.prev == 2) {
+      c.exit <- c.exit + exit.time - start.r/R
+    }
+    is.fail <- (rbinom(
+      1, size=1,
+      prob = (
+        lam.nonfail /
+          (lam.nonfail + lam10.fn(exit.time)*exp(alpha1*v + beta1*c.exit))
+      )
+    ) == 0)
+    if (is.fail) {
+      exit.state <- ifelse(state.prev==2, 5, 6)
+    } else {
+      exit.state <- ifelse(state.prev==2, 3, 2)
+    }
+    
+    # Discretize exit time
+    exit.idx <- ceiling(exit.time * R) - start.r
+  }
+  
+  return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
+}
+
 generate.data <- function() {
   u <- (1:R)/R
   v.full <- rbinom(n, size=1, prob=pv)
@@ -156,7 +241,7 @@ generate.data <- function() {
   }
   
   system.time(sapply(1:n, function(i) {
-    print(paste0(Sys.time(), ": ", i))
+    # print(paste0(Sys.time(), ": ", i))
     idx <- which(dat$i==i)
     v <- dat$v[idx[1]]
     w <- dat$w[idx[1]]
@@ -191,17 +276,16 @@ generate.data <- function() {
       
       r <- onset.idx + 1
       while (N.bar==0 && r <= R) {
-        # If previous state is (1,0) ...
-        if (state.prev==2) {
-          P.exit <- t(sapply(r:R, function(rr) {
-            P.fn(u[rr], cc=c.prev+(rr-r+1)/R, v=v, w=1)[state.prev,]
-          }))
-          exit.states <- my.rmultinom(P.exit)
+        exit.info <- get.exit.info.cts(r, c.prev, v, state.prev)
+        exit.idx <- exit.info$exit.idx
+        
+        if (!exit.info$is.exit) {
+          break
+        } else {
+          exit.state <- exit.info$exit.state
           
-          if (any(exit.states != state.prev)) {
-            exit.idx <- min(which(exit.states != state.prev)) # next time when not in (1,0)
-            exit.state <- exit.states[exit.idx]               # state occupied at that time
-            
+          # If previous state is (1,0) ...
+          if (state.prev==2) {
             if (exit.idx > 1) {
               fill.dat(
                 idx[r:(r+exit.idx-2)],
@@ -225,20 +309,8 @@ generate.data <- function() {
             )
             
             r <- r + exit.idx
-          } else {
-            break
-          }
-        # ... else if previous state is (0,0) ...
-        } else if (state.prev==3) {
-          P.exit <- t(sapply(r:R, function(rr) {
-            P.fn(u[rr], cc=c.prev, v=v, w=1)[state.prev,]
-          }))
-          exit.states <- my.rmultinom(P.exit)
-          
-          if (any(exit.states != state.prev)) {
-            exit.idx <- min(which(exit.states != state.prev)) # next time when not in (0,0)
-            exit.state <- exit.states[exit.idx]               # state occupied at that time
-            
+            # ... else if previous state is (0,0) ...
+          } else if (state.prev==3) {
             if (exit.idx > 1) {
               fill.dat(idx[r:(r+exit.idx-2)], E=0, N.bar=0, state.prev=3, state=3, c=c.prev)
             }
@@ -257,10 +329,8 @@ generate.data <- function() {
             )
             
             r <- r + exit.idx
-          } else {
-            break
-          }
-        } else { stop() }
+          } else { stop() }
+        }
       }
       
       # Current state is never exited; fill in remaining times accordingly
