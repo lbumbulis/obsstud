@@ -3,11 +3,13 @@ source("source.R")
 
 ###### GENERATE SIMULATION SEEDS ######
 
-set.seed(1)
+RNGkind("L'Ecuyer-CMRG")
+set.seed(1999)
 
 sim.seeds <- list(.Random.seed)
 for (iter in 2:nsim) {
-  temp <- runif(10000) # arbitrarily update the random seed
-  sim.seeds[[iter]] <- .Random.seed
+  sim.seeds[[iter]] <- parallel::nextRNGStream(sim.seeds[[iter-1]])
 }
 saveRDS(sim.seeds, file=paste0("sim_seeds_nsim", nsim, ".rds"))
+
+RNGkind("default")

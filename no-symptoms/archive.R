@@ -149,3 +149,15 @@ thetahat.cox <- as.data.frame(t(sapply(1:length(all.mcox), function(iter) {
 })))
 
 
+foo <- t(sapply(1:200, function(iter) {
+  est.pois <- as.numeric(na.omit(as.numeric(thetahat.pois[iter,])))
+  nparam <- length(est.pois)
+  c(
+    est.pois[1:(nparam-2)],
+    rep(NA, R-(nparam-3)),
+    est.pois[nparam - (1:0)]
+  )
+}))
+colnames(foo) <- colnames(thetahat.pois)
+write.csv(foo, file="./sim-results/attempt7/mpois_est.csv", row.names=F)
+
