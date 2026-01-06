@@ -1,12 +1,52 @@
 
-# One-step transition probability matrix, given time tt, cumulative exposure cc, and covariates v and w
-P.fn <- function(tt, cc, v, w) {
+# One-step transition intensity matrix, given time tt,
+# cumulative exposure variables x, and covariate v
+P.fn <- function(tt, x, v) {
   P <- matrix(c(
-    0, w*rho.e0.fn(tt)*exp(psi*v), 0, lam10.fn(tt)*exp(alpha1*v), 0, 0,
-    0, 0, lam.e00*exp(eta0*v), 0, lam10.fn(tt)*exp(alpha1*v + beta1*cc), 0,
-    0, lam.e10*exp(eta1*v), 0, 0, 0, lam10.fn(tt)*exp(alpha1*v + beta1*cc),
-    rep(0, 6*3)
-  ), nrow=2*3, byrow=T) * 1/R
+    ## e = 0^\circ
+    # z = 0
+    0,
+    lam1p.fn(tt)*exp(t(x) %*% beta1p + v*gamma1p),
+    lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1),
+    lam2.fn(tt)*exp(t(x) %*% beta2 + v*gamma2),
+    psi1c.fn(tt)*exp(v*eta1c), 0, 0, 0,
+    rep(0, 4),
+    # z = 1'
+    0, 0, lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1), 0,
+    rep(0, 4*2),
+    # z = 1 or 2
+    rep(0, 4*3*2),
+    
+    ## e = 1
+    # z = 0
+    rep(0, 4),
+    0,
+    lam1p.fn(tt)*exp(t(x) %*% beta1p + v*gamma1p),
+    lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1),
+    lam2.fn(tt)*exp(t(x) %*% beta2 + v*gamma2),
+    psi0*exp(t(x) %*% alpha0 + v*eta0), 0, 0, 0,
+    # z = 1'
+    rep(0, 4),
+    0, 0, lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1), 0,
+    0, psi0*exp(t(x) %*% alpha0 + v*eta0), 0, 0,
+    # z = 1 or 2
+    rep(0, 4*3*2),
+    
+    ## e = 0
+    # z = 0
+    rep(0, 4),
+    psi1*exp(t(x) %*% alpha1 + v*eta1), 0, 0, 0,
+    0,
+    lam1p.fn(tt)*exp(t(x) %*% beta1p + v*gamma1p),
+    lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1),
+    lam2.fn(tt)*exp(t(x) %*% beta2 + v*gamma2),
+    # z = 1'
+    rep(0, 4*2),
+    0, 0, lam1.fn(tt)*exp(t(x) %*% beta1 + v*gamma1), 0,
+    # z = 1 or 2
+    rep(0, 4*3*2)
+    
+  ), nrow=4*3, byrow=T) * 1/R
   diag(P) <- 1 - rowSums(P)
   
   return(P)
@@ -14,73 +54,90 @@ P.fn <- function(tt, cc, v, w) {
 
 get.E.for.state <- function(state) {
   # -1 represents 0^\circ
-  ifelse(state %in% c(1,4), -1, ifelse(state %in% c(2,5), 1, 0))
+  ifelse(state %in% 1:4, -1, ifelse(state %in% 5:8, 1, 0))
 }
-get.N.for.state <- function(state) {
-  as.numeric(state >= 4)
-}
-
-# P is a matrix with one column for each state and one row for each time point
-# (i.e., vector of multinomial probabilities)
-my.rmultinom <- function(P) {
-  unif <- runif(nrow(P))
-  cumP <- t(apply(P, 1, cumsum))
-  return(max.col(cumP >= unif, ties.method="first"))
+get.Z.for.state <- function(state) {
+  # 10 represents 1'
+  ifelse(state %% 4 == 2, 10, ifelse(state %% 4 == 1, 0, (state-2) %% 4))
 }
 
-get.exit.info <- function(start.r, c.prev, v, state.prev) {
-  if (state.prev==2) {
-    P.exit <- t(sapply(start.r:R, function(rr) {
-      P.fn(rr/R, cc=c.prev+(rr-start.r+1)/R, v=v, w=1)[state.prev,]
-    }))
-  } else if (state.prev==3) {
-    P.exit <- t(sapply(start.r:R, function(rr) {
-      P.fn(rr/R, cc=c.prev, v=v, w=1)[state.prev,]
-    }))
-  }
-  exit.states <- my.rmultinom(P.exit)
-  
-  if (any(exit.states != state.prev)) {
-    is.exit <- T
-    exit.idx <- min(which(exit.states != state.prev)) # next time when not in current state
-    exit.state <- exit.states[exit.idx]               # state occupied at that time
-  } else {
-    is.exit <- F
-    exit.idx <- exit.state <- NA
-  }
-  return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
-}
-
-get.exit.info.cts <- function(start.r, c.prev, v, state.prev) {
+get.exit.info <- function(tt, cc, b.start, v, state) {
   surv.prob <- runif(1)
-  if (state.prev == 2) {
-    lam.nonfail <- lam.e00 * exp(eta0*v) # quit intensity
-  } else if (state.prev == 3) {
-    lam.nonfail <- lam.e10 * exp(eta1*v) # relapse intensity
+  
+  integrand.1p <- Vectorize(function(u) { lam1p.fn(u) * exp(beta1p[2]*u )})
+  integrand.1 <- Vectorize(function(u) { lam1.fn(u) * exp(beta1[2]*u) })
+  integrand.2 <- Vectorize(function(u) { lam2.fn(u) * exp(beta2[2]*u) })
+  
+  get.x4.idx <- function(u) {
+    b <- b.start + u - tt # time since most recent quit
+    return(findInterval(b, b.breaks))
   }
+  
+  integrand.1p.b <- Vectorize(function(u) { lam1p.fn(u) * exp(beta1p[3+get.x4.idx(u)]) })
+  integrand.1.b <- Vectorize(function(u) { lam1.fn(u) * exp(beta1[3+get.x4.idx(u)]) })
+  integrand.2.b <- Vectorize(function(u) { lam2.fn(u) * exp(beta2[3+get.x4.idx(u)]) })
+  
+  E <- get.E.for.state(state)
+  Z <- get.Z.for.state(state)
   
   # Determine exit time
-  if (state.prev == 2) {
-    integrate.fn <- Vectorize(function(u) {
-      lam10.fn(u) * exp(beta1*u)
-    })
+  if (E==-1 && Z==0) {
     uniroot.fn <- function(s) {
-      exp(
-        -integrate(integrate.fn, lower=start.r/R, upper=start.r/R+s)$value *
-          exp(alpha1*v + beta1*(c.prev-start.r/R)) -
-          lam.nonfail * s
-      ) - surv.prob
+      exp(-(
+        exp(gamma1p*v) * integrate(lam1p.fn, lower=tt, upper=tt+s)$value +
+          exp(gamma1*v) * integrate(lam1.fn, lower=tt, upper=tt+s)$value +
+          exp(gamma2*v) * integrate(lam2.fn, lower=tt, upper=tt+s)$value +
+          exp(eta1c*v) * integrate(psi1c.fn, lower=tt, upper=tt+s)$value
+      )) - surv.prob
     }
-  } else if (state.prev == 3) {
+  } else if (E==-1 && Z==10) {
     uniroot.fn <- function(s) {
-      exp(
-        -(integrate(lam10.fn, lower=start.r/R, upper=start.r/R+s)$value *
-            exp(alpha1*v + beta1*c.prev)) -
-          lam.nonfail * s
-      ) - surv.prob
+      exp(-(
+        exp(beta1[nvar] + gamma1*v) * integrate(lam1.fn, lower=tt, upper=tt+s)$value
+      )) - surv.prob
+    }
+  } else if (E==1 && Z==0) {
+    uniroot.fn <- function(s) {
+      exp(-(
+        exp(beta1p[1] + (cc-tt)*beta1p[2] + gamma1p*v) *
+            integrate(integrand.1p, lower=tt, upper=tt+s)$value +
+          exp(beta1[1] + (cc-tt)*beta1[2] + gamma1*v) *
+            integrate(integrand.1, lower=tt, upper=tt+s)$value +
+          exp(beta2[1] + (cc-tt)*beta2[2] + gamma2*v) *
+            integrate(integrand.2, lower=tt, upper=tt+s)$value +
+          s * psi0*exp(eta0*v)
+      )) - surv.prob
+    }
+  } else if (E==1 && Z==10) {
+    uniroot.fn <- function(s) {
+      exp(-(
+        exp(beta1[1] + (cc-tt)*beta1[2] + beta1[nvar] + gamma1*v) *
+            integrate(integrand.1, lower=tt, upper=tt+s)$value +
+          s * psi0*exp(alpha0[nvar] + eta0*v)
+      )) - surv.prob
+    }
+  } else if (E==0 && Z==0) {
+    uniroot.fn <- function(s) {
+      exp(-(
+        exp(beta1p[3] + gamma1p*v) * integrate(integrand.1p.b, lower=tt, upper=tt+s)$value +
+          exp(beta1[3] + gamma1*v) * integrate(integrand.1.b, lower=tt, upper=tt+s)$value +
+          exp(beta2[3] + gamma2*v) * integrate(integrand.2.b, lower=tt, upper=tt+s)$value +
+          s * psi1*exp(alpha1[3] + eta1*v)
+      )) - surv.prob
+    }
+  } else if (E==0 && Z==10) {
+    uniroot.fn <- function(s) {
+      exp(-(
+        exp(beta1[3] + beta1[nvar] + gamma1*v) * integrate(integrand.1.b, lower=tt, upper=tt+s)$value
+      )) - surv.prob
     }
   }
-  exit.time <- start.r/R + uniroot(uniroot.fn, interval=c(0, 2))$root
+  
+  if (uniroot.fn(1/R) < 0) {
+    exit.time <- tt + 1/R
+  } else {
+    exit.time <- tt + uniroot(uniroot.fn, interval=c(1/R, 2))$root
+  }
   
   if (exit.time > tau) {
     is.exit <- F
@@ -89,173 +146,141 @@ get.exit.info.cts <- function(start.r, c.prev, v, state.prev) {
     is.exit <- T
     
     # Determine exit state
-    c.exit <- c.prev
-    if (state.prev == 2) {
-      c.exit <- c.exit + exit.time - start.r/R
-    }
-    is.fail <- (rbinom(
-      1, size=1,
-      prob = (
-        lam.nonfail /
-          (lam.nonfail + lam10.fn(exit.time)*exp(alpha1*v + beta1*c.exit))
-      )
-    ) == 0)
-    if (is.fail) {
-      exit.state <- ifelse(state.prev==2, 5, 6)
-    } else {
-      exit.state <- ifelse(state.prev==2, 3, 2)
+    x5 <- as.numeric(Z==10)
+    if (E==-1) {
+      x <- c(rep(0, nvar-1), x5)
+    } else if (E==1) {
+      x <- c(1, cc + exit.time - tt, rep(0, nvar-3), x5)
+    } else if (E==0) {
+      x4 <- rep(0, RB)
+      x4[get.x4.idx(exit.time)] <- 1
+      x <- c(0, 0, 1, x4, x5)
     }
     
+    P <- P.fn(exit.time, x, v)
+    diag(P) <- 0 # prevent "transitions" where they stay in the same state
+    exit.state <- which(rmultinom(n=1, size=1, prob=P[state,]) > 0)
+    
     # Discretize exit time
-    exit.idx <- ceiling(exit.time * R) - start.r
+    exit.idx <- ceiling(exit.time * R)
   }
   
   return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
 }
 
-generate.data <- function() {
-  u <- (1:R)/R
+generate.data <- function(n=nn) {
   v.full <- rbinom(n, size=1, prob=pv)
-  w.full <- rbinom(n, size=1, prob=pi.w)
   
   dat <- data.frame(
     i = rep(1:n, each=R),
     v = rep(v.full, each=R),
-    w = rep(w.full, each=R),
     r = rep(1:R, times=n),
-    u = rep(u, times=n),
+    u = rep((1:R)/R, times=n),
     E = NA,
-    N.bar = NA,
+    Z = NA,
     state.prev = NA,
     state = NA,
-    c = NA
+    c = NA,
+    b = NA
   )
   
-  P.onset00 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=0, w=0)[1,] }))
-  P.onset01 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=0, w=1)[1,] }))
-  P.onset10 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=1, w=0)[1,] }))
-  P.onset11 <- t(sapply(1:R, function(rr) { P.fn(u[rr], cc=0, v=1, w=1)[1,] }))
-  
-  fill.dat <- function(idxx, E, N.bar, state.prev, state, cc) {
-    dat$E[idxx] <<- E
-    dat$N.bar[idxx] <<- N.bar
-    dat$state.prev[idxx] <<- state.prev
-    dat$state[idxx] <<- state
-    dat$c[idxx] <<- cc
+  fill.dat <- function(idx, E, Z, state.prev, state, cc, b) {
+    dat$E[idx] <<- E
+    dat$Z[idx] <<- Z
+    dat$state.prev[idx] <<- state.prev
+    dat$state[idx] <<- state
+    dat$c[idx] <<- cc
+    dat$b[idx] <<- b
   }
   
   system.time(sapply(1:n, function(i) {
-    # print(paste0(Sys.time(), ": ", i))
-    idx <- which(dat$i==i)
-    v <- dat$v[idx[1]]
-    w <- dat$w[idx[1]]
+    print(paste0(Sys.time(), ": ", i))
+    i.idx <- which(dat$i==i)
+    v <- dat$v[i.idx[1]]
     
-    # Multinomial draws via inverse CDF method, to determine 1st time when not in (0^\circ, 0)
-    if (v==0 && w==0) {
-      P <- P.onset00
-    } else if (v==0 && w==1) {
-      P <- P.onset01
-    } else if (v==1 && w==0) {
-      P <- P.onset10
-    } else if (v==1 && w==1) {
-      P <- P.onset11
-    }
-    onset.states <- my.rmultinom(P) # 1=(0^\circ,0), 2=(1,0), 3=(0,0), 4=(0^\circ,1), 5=(1,1), 6=(0,1)
+    state <- 1
+    E <- get.E.for.state(state)
+    Z <- get.Z.for.state(state)
+    cc <- 0
+    b <- Inf
+    r <- 1
     
-    # If the person ever leaves state (0^\circ, 0) ...
-    if (any(onset.states!=1)) {
-      onset.idx <- min(which(onset.states!=1)) # 1st time when not in (0^\circ, 0)
-      onset.state <- onset.states[onset.idx]   # state occupied at that time
+    while (Z %in% c(0,10) && r <= R) { # Z=10 means Z=1'
+      exit.info <- get.exit.info((r-1)/R, cc, b, v, state)
+      exit.idx <- exit.info$exit.idx
       
-      if (onset.idx > 1) {
-        fill.dat(idx[1:(onset.idx-1)], E=-1, N.bar=0, state.prev=1, state=1, cc=0)
-      }
-      
-      E.prev <- get.E.for.state(onset.state)
-      N.bar <- get.N.for.state(onset.state)
-      c.prev <- 0
-      state.prev <- onset.state
-      
-      fill.dat(idx[onset.idx], E=E.prev, N.bar=N.bar, state.prev=1, state=state.prev, cc=c.prev)
-      
-      r <- onset.idx + 1
-      while (N.bar==0 && r <= R) {
-        exit.info <- get.exit.info.cts(r, c.prev, v, state.prev)
-        exit.idx <- exit.info$exit.idx
+      if (!exit.info$is.exit) {
+        break
+      } else {
+        exit.state <- exit.info$exit.state
         
-        if (!exit.info$is.exit) {
-          break
-        } else {
-          exit.state <- exit.info$exit.state
-          
-          # If previous state is (1,0) ...
-          if (state.prev==2) {
-            if (exit.idx > 1) {
-              fill.dat(
-                idx[r:(r+exit.idx-2)],
-                E=1, N.bar=0, state.prev=2, state=2,
-                c = c.prev + seq(1/R, by=1/R, length.out=exit.idx-1)
-              )
-            }
-            
-            E.prev <- get.E.for.state(exit.state)
-            N.bar <- get.N.for.state(exit.state)
-            c.prev <- c.prev + exit.idx/R
-            state.prev <- exit.state
-            
+        if (E == 1) { # currently smoking
+          if (exit.idx > r) {
             fill.dat(
-              idx[r+exit.idx-1],
-              E = E.prev,
-              N.bar = N.bar,
-              state.prev = 2,
-              state = state.prev,
-              c = c.prev
+              i.idx[r:(exit.idx-1)],
+              E=E, Z=Z, state.prev=state, state=state,
+              c = cc + seq(1/R, by=1/R, length.out=exit.idx-r),
+              b = 0
             )
-            
-            r <- r + exit.idx
-            # ... else if previous state is (0,0) ...
-          } else if (state.prev==3) {
-            if (exit.idx > 1) {
-              fill.dat(idx[r:(r+exit.idx-2)], E=0, N.bar=0, state.prev=3, state=3, c=c.prev)
-            }
-            
-            E.prev <- get.E.for.state(exit.state)
-            N.bar <- get.N.for.state(exit.state)
-            state.prev <- exit.state
-            
+          }
+          cc <- cc + (exit.idx - r)/R
+          b <- 0
+        } else if (E == 0) { # previously smoked
+          if (exit.idx > r) {
             fill.dat(
-              idx[r+exit.idx-1],
-              E = E.prev,
-              N.bar = N.bar,
-              state.prev = 3,
-              state = state.prev,
-              c = c.prev
+              i.idx[r:(exit.idx-1)],
+              E=E, Z=Z, state.prev=state, state=state, c=cc,
+              b = b + seq(1/R, by=1/R, length.out=exit.idx-r)
             )
-            
-            r <- r + exit.idx
-          } else { stop() }
+          }
+          b <- b + (exit.idx - r)/R
+        } else { # (E == -1) never smoked
+          if (exit.idx > r) {
+            fill.dat(
+              i.idx[r:(exit.idx-1)],
+              E=E, Z=Z, state.prev=state, state=state, c=cc, b=b # c=b=0 here
+            )
+          }
         }
-      }
-      
-      # Current state is never exited; fill in remaining times accordingly
-      if (r <= R) {
-        if (E.prev==1 && N.bar==0) {
-          c.vec <- c.prev + seq(1/R, by=1/R, length.out=R-r+1)
-        } else {
-          c.vec <- c.prev
-        }
+        
+        E <- get.E.for.state(exit.state)
+        Z <- get.Z.for.state(exit.state)
         fill.dat(
-          idx[r:R],
-          E = E.prev,
-          N.bar = N.bar,
-          state.prev = state.prev,
-          state = state.prev,
-          cc = c.vec
+          i.idx[exit.idx],
+          E = E,
+          Z = Z,
+          state.prev = state,
+          state = exit.state,
+          c = cc,
+          b = b
         )
+        state <- exit.state
+        r <- exit.idx + 1
+      }
+    }
+    
+    # Current state is never exited; fill in remaining times accordingly
+    if (r <= R) {
+      c.vec <- cc
+      b.vec <- b
+      
+      if (Z %in% c(0,10)) { # unfailed
+        if (E==1) {
+          c.vec <- c.vec + seq(1/R, by=1/R, length.out=R-r+1)
+        } else if (E==0) {
+          b.vec <- b.vec + seq(1/R, by=1/R, length.out=R-r+1)
+        }
       }
       
-    } else {
-      fill.dat(idx, E=-1, N.bar=0, state.prev=1, state=1, cc=0)
+      fill.dat(
+        i.idx[r:R],
+        E = E,
+        Z = Z,
+        state.prev = state,
+        state = state,
+        c = c.vec,
+        b = b.vec
+      )
     }
   }))
   

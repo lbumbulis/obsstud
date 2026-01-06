@@ -23,7 +23,7 @@ all.state.occupancy <- lapply(1:nsim, function(iter) {
 })
 all.state.occupancy <- Filter(Negate(is.null), all.state.occupancy)
 
-plot.dat <- as.data.frame(Reduce("+", all.state.occupancy) / length(all.state.occupancy) / R)
+plot.dat <- as.data.frame(Reduce("+", all.state.occupancy) / length(all.state.occupancy) / nn)
 plot.dat$r <- as.numeric(as.character(plot.dat$r))
 plot.dat$is.cancer <- plot.dat$state %in% 4:6
 
