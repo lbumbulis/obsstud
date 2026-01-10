@@ -8,19 +8,19 @@ tau <- 50/time.scale # at most 50 years of follow-up from selection date
 pv <- 1/2
 
 RB <- 10 # number of intervals for quit backward recurrence time b(t)
-b.breaks <- c(seq(0, (RB-1)/time.scale, length.out=RB), Inf) # breaks defining the intervals
+b.breaks <- seq(0, (RB-1)/time.scale, length.out=RB) # breaks defining the intervals
 
-nvar <- RB + 4 # number of parameters in each of alpha and beta
+nvar <- RB + 5 # number of parameters in each of alpha and beta
 
 ###### DISEASE PROCESS ################
 ## Covariate coefficients
-beta1p <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB)+1)/RB), 1))
+beta1p <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB))/RB), 1, 1))
 gamma1p <- log(1.1)
 
-beta1 <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB)+1)/RB), 10)) # consider increasing the 10 to 20
+beta1 <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB))/RB), 1.05, 10)) # consider increasing the 10 to 20
 gamma1 <- log(1.1)
 
-beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1))
+beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1, 1))
 gamma2 <- log(1.2)
 
 ## Baseline intensities
@@ -84,10 +84,10 @@ lam1p.fn <- Vectorize(function(tt) { rho*lam1.fn(tt) })
 ## Covariate coefficients
 eta1c <- log(1.2) # TODO: Check this
 
-alpha1 <- log(c(1, 1, 1, rep(1,RB), 1))
+alpha1 <- log(c(1, 1, 1, rep(1,RB), 1, 1))
 eta1 <- log(1.2)
 
-alpha0 <- log(c(1, 1, 1, rep(1,RB), 100)) # 10, 20 are too low
+alpha0 <- log(c(1, 1, 1, rep(1,RB), 1, 100)) # 10, 20 are too low
 eta0 <- log(0.8)
 
 ## Baseline intensities
@@ -140,7 +140,7 @@ p1 <- 1     # prob of selecting individual who is in (1,0) at selection time
 ###### SIMULATION PARAMETERS ##########
 J <- 1000 # 1/J is the increment used to discretize time
 
-nn <- 10^5   # super-sample size
+nn <- 10^4   # super-sample size
 nsim <- 1000 # number of simulation replicates
 
 

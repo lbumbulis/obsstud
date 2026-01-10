@@ -86,7 +86,7 @@ get.first.exit.time <- Vectorize(function(v, surv.prob) {
 })
 
 get.first.exit.state <- Vectorize(function(exit.time, v) {
-  P <- P.fn(exit.time, x=rep(0, RB+4), v)
+  P <- P.fn(exit.time, x=rep(0, nvar), v)
   diag(P) <- 0 # prevent "transitions" where they stay in the same state
   return(which(rmultinom(n=1, size=1, prob=P[1,]) > 0))
 })
@@ -150,7 +150,7 @@ get.exit.info <- function(tt, max.idx, cc, b.start, v, state) {
   } else if (E==0 && Z==10) {
     uniroot.fn <- function(s) {
       exp(-(
-        exp(cc*time.scale*beta1[2] + beta1[3] + beta1[nvar] + gamma1*v) *
+        exp(beta1[3] + cc*time.scale*beta1[nvar-1] + beta1[nvar] + gamma1*v) *
           integrate(lam1.fn, lower=tt, upper=tt+s)$value
       )) - surv.prob
     }
@@ -165,17 +165,20 @@ get.exit.info <- function(tt, max.idx, cc, b.start, v, state) {
     is.exit <- T
     
     # Determine exit state
-    x5 <- as.numeric(Z==10)
+    x6 <- as.numeric(Z==10)
     if (E==-1) {
-      x <- c(rep(0, nvar-1), x5)
+      x <- c(rep(0, nvar-1), x6)
     } else if (E==1) {
-      x <- c(1, (cc + exit.time - tt) * time.scale, rep(0, nvar-3), x5)
+      x <- c(1, (cc + exit.time - tt) * time.scale, rep(0, nvar-3), x6)
     } else if (E==0 && Z==0) {
+      r <- get.x4.idx(exit.time)
       x4 <- rep(0, RB)
-      x4[get.x4.idx(exit.time)] <- cc*time.scale
-      x <- c(0, 0, 1, x4, x5)
+      if (r <= RB) {
+        x4[r] <- cc*time.scale
+      }
+      x <- c(0, 0, 1, x4, 0, x6)
     } else if (E==0 && Z==10) {
-      x <- c(0, cc*time.scale, 1, rep(0, nvar-4), x5)
+      x <- c(0, 0, 1, rep(0, RB), cc*time.scale, x6)
     }
     
     P <- P.fn(exit.time, x, v)
@@ -186,14 +189,14 @@ get.exit.info <- function(tt, max.idx, cc, b.start, v, state) {
   return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
 }
 
-generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
+generate.data <- function(n=nn, is.discrete.surv=F, print.increment=100) {
   print(paste0(Sys.time(), ": Generating v ..."))
   v.full <- rbinom(n, size=1, prob=pv)
   
   if (is.discrete.surv) {
     expon <- 5
     div <- 10^expon
-    surv.key.filename <- "surv_key.rds"
+    surv.key.filename <- paste0("surv_key_e", expon, ".rds")
     if (file.exists(surv.key.filename)) {
       surv.key <- readRDS(surv.key.filename)
     } else {
@@ -240,11 +243,16 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
   first.exit.state[i.exit] <- get.first.exit.state(first.exit.time[i.exit], v.full[i.exit])
   i.smoke <- which(first.exit.state == 5)
   
+  i.late.exit.select <- intersect(i.late.exit, which(is.select0))
+  first.exit.state[i.late.exit.select] <- get.first.exit.state(
+    first.exit.time[i.late.exit.select], v.full[i.late.exit.select]
+  )
+  
   i.select <- sort(c(which(is.select0), i.smoke))
   
   print(paste0(Sys.time(), ": Generating follow-up data ..."))
   dat <- as.data.frame(data.table::rbindlist(lapply(i.select, function(i) {
-    if (i==1 || i %% print.factor == 0) {
+    if (i==1 || i %% print.increment == 0) {
       print(paste0(Sys.time(), ": ", i))
     }
     
@@ -282,7 +290,7 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
       E <- get.E.for.state(state)
       Z <- get.Z.for.state(state)
       cc <- 0
-      b <- 0
+      b <- ifelse(E==-1, Inf, 0)
       fill.dat(first.exit.idx[i], E, Z, state.prev=1, state=state, c=cc, b=b)
       
       j <- first.exit.idx[i] + 1
@@ -304,7 +312,13 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
         } else {
           exit.state <- exit.info$exit.state
           
-          if (E == 1) { # currently smoking
+          if (E == -1) { # never smoked
+            if (exit.idx > j) {
+              fill.dat(
+                j:(exit.idx-1), E=E, Z=Z, state.prev=state, state=state, c=cc, b=b
+              )
+            }
+          } else if (E == 1) { # currently smoking
             if (exit.idx > j) {
               fill.dat(
                 j:(exit.idx-1),
@@ -314,7 +328,7 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
               )
             }
             cc <- cc + (exit.idx - j)/J
-            b <- 0
+            b <- ifelse(get.E.for.state(exit.state)==1, b, 0)
           } else if (E == 0) { # previously smoked
             if (exit.idx > j) {
               fill.dat(
@@ -361,9 +375,21 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.factor=100) {
       }
     }
     
+    dat.i$E.prev <- c(-1, dat.i$E[1:(max.idx-1)])
+    dat.i$Z.prev <- c(0, dat.i$Z[1:(max.idx-1)])
+    
     return(dat.i)
   })))
   
+  dat$B <- factor(findInterval(dat$b, b.breaks))
   dat$u.prev <- dat$u - 1/J
+  dat$Z1 <- as.numeric(dat$Z==1)
+  dat$Z2 <- as.numeric(dat$Z==2)
+  
+  dat$x2 <- ifelse(dat$E.prev == 1, dat$c*time.scale, 0)
+  dat$x4 <- ifelse(dat$E.prev == 0 & dat$Z.prev == 0, dat$c*time.scale, 0)
+  dat$x5 <- ifelse(dat$E.prev == 0 & dat$Z.prev == 10, dat$c*time.scale, 0)
+  dat$x6 <- as.numeric(dat$Z.prev == 10)
+  
   return(dat)
 }

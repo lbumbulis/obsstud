@@ -1,17 +1,18 @@
 
 args <- commandArgs(trailingOnly=TRUE)
-r <- as.numeric(args[1])
+iter <- as.numeric(args[1])
 
 library(survival)
 
 source("source.R")
+source("datagen.R")
 sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
 
 
 
 print(paste0(Sys.time(), ": Generating the data"))
 
-.Random.seed <- sim.seeds[[r]]
+.Random.seed <- sim.seeds[[iter]]
 
 system.time(dat <- generate.data()) # takes < 5min
 
@@ -37,8 +38,8 @@ save(
   file = paste0("./data_features/data_features_iter", r, ".RData")
 )
 
-if (r==1) {
-  saveRDS(dat, file="test_dat_iter1.rds")
+if (iter==1) {
+  saveRDS(dat, file="test_dat_iter1.rds", compress="gzip")
 }
 
 
