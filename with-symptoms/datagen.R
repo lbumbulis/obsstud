@@ -144,7 +144,7 @@ get.exit.info <- function(tt, max.idx, cc, b.start, v, state) {
         exp(beta1p[3] + gamma1p*v) * integrate(integrand.1p.b, lower=tt, upper=tt+s)$value +
           exp(beta1[3] + gamma1*v) * integrate(integrand.1.b, lower=tt, upper=tt+s)$value +
           exp(beta2[3] + gamma2*v) * integrate(integrand.2.b, lower=tt, upper=tt+s)$value +
-          s * psi1*exp(alpha1[3] + eta1*v)
+          s * psi1*exp(eta1*v)
       )) - surv.prob
     }
   } else if (E==0 && Z==10) {
@@ -383,6 +383,8 @@ generate.data <- function(n=nn, is.discrete.surv=F, print.increment=100) {
   
   dat$B <- factor(findInterval(dat$b, b.breaks))
   dat$u.prev <- dat$u - 1/J
+  dat$r <- dat$j - as.integer(ceiling(dat$select.age * J))
+  
   dat$Z1 <- as.numeric(dat$Z==1)
   dat$Z2 <- as.numeric(dat$Z==2)
   

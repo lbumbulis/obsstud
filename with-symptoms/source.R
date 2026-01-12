@@ -20,8 +20,13 @@ gamma1p <- log(1.1)
 beta1 <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB))/RB), 1.05, 10)) # consider increasing the 10 to 20
 gamma1 <- log(1.1)
 
-beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1, 1))
+beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1.02, 1))
 gamma2 <- log(1.2)
+
+# Temporary simplification # TODO: remove
+beta1p[2] <- beta1[2] <- beta2[2] <- 0
+beta1p[4:(nvar-2)] <- beta1[4:(nvar-2)] <- 0
+beta1[nvar-1] <- beta2[nvar-1] <- 0
 
 ## Baseline intensities
 # Lung cancer-free death

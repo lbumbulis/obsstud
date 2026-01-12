@@ -1,122 +1,94 @@
 
 args <- commandArgs(trailingOnly=TRUE)
-iter <- as.numeric(args[1])
+start.iter <- as.numeric(args[1])
+
+iter.jump <- 10
+stop.iter <- start.iter + iter.jump - 1
 
 library(survival)
 
 source("source.R")
 source("datagen.R")
+
 sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
+.Random.seed <- sim.seeds[[(start.iter %/% iter.jump) + 1]] # 1 -> 1st seed, 11 -> 2nd, 21 -> 3rd, ...
 
 
 
-print(paste0(Sys.time(), ": Generating the data"))
-
-.Random.seed <- sim.seeds[[iter]]
-
-system.time(dat <- generate.data()) # takes < 5min
-
-
-
-## Features of the data, to be saved later
-v.full <- tapply(dat$v, dat$i, function(x) x[1])
-w.full <- tapply(dat$w, dat$i, function(x) x[1])
-
-state.occupancy <- with(dat, table(r, state)) # rows = time points, cols = states; used for plots
-
-transition.count <- with(
-  dat, table(state.prev, state, i)
-) # used for number of quit attempts (i.e., "2 -> 3" transitions) per person, among smokers
-
-smoke.dur.temp <- aggregate(
-  cbind(c, N.bar) ~ i + r, data=dat, subset=(w==1), FUN=max
-) # used for mean smoking duration, among smokers
-smoke.dur <- aggregate(cbind(c, N.bar) ~ r, data=smoke.dur.temp, FUN=mean)
-
-save(
-  v.full, w.full, state.occupancy, transition.count, smoke.dur,
-  file = paste0("./data_features/data_features_iter", r, ".RData")
-)
-
-if (iter==1) {
-  saveRDS(dat, file="test_dat_iter1.rds", compress="gzip")
+for (iter in start.iter:stop.iter) {
+  print(paste0(Sys.time(), ": Starting iter ", iter))
+  system.time(dat <- generate.data())
+  
+  # ## Features of the data, to be saved later
+  # v.full <- tapply(dat$v, dat$i, function(x) x[1])
+  # 
+  # # rows = time points, cols = states; used for plots
+  # state.occupancy.j <- with(dat, table(j, state)) # time 0 is birth
+  # state.occupancy.r <- with(dat, table(r, state)) # time 0 is recruitment
+  # 
+  # transition.count <- with(
+  #   dat, table(state.prev, state, i)
+  # ) # used for number of quit attempts per person, among smokers
+  # 
+  # save(
+  #   v.full, state.occupancy.j, state.occupancy.r, transition.count,
+  #   file = paste0("./data_features/data_features_iter", iter, ".RData")
+  # )
+  
+  if (iter==1) {
+    saveRDS(dat, file="test_dat_iter1.rds", compress="bzip2")
+  }
+  
+  
+  # Filter the data to what is needed for analysis
+  model.dat <- dat[-which(dat$state.prev==dat$state & dat$Z %in% 1:2),] # already in absorbing state
+  
+  model.dat <- model.dat[-which(model.dat$Z.prev==10),] # not at risk for -> 2 once symptoms develop
+  
+  fail.times <- unique(model.dat$j[which(model.dat$Z==2)])
+  model.dat <- model.dat[which(model.dat$j %in% fail.times),] # only need data from times when someone fails
+  # # Check how many ties there are in the failure times
+  # length(fail.times)
+  # length(dat$j[which(dat$Z==2 & dat$Z.prev==0)])
+  # hist(dat$j[which(dat$Z==2 & dat$Z.prev==0)], breaks=seq(0.4, 1.1, by=0.0001)*J, main="", xlab="j")
+  
+  
+  print(paste0(Sys.time(), ": Starting Cox analysis"))
+  m.cox <- coxph(
+    Surv(u.prev, u, Z2) ~ factor(E.prev) + v,
+    data = model.dat, method = "breslow"
+  )
+  # method="breslow": takes < 10 seconds for J=1000 (n=10^4), < 1min for J=10^4 (n=5000)
+  # method="exact": takes over 1.5h for J=1000 (n=10^4), over 5h for J=10^4 (n=5000)
+  
+  est.cox <- coef(m.cox)[c(2,1,3)]
+  var.cox <- diag(vcov(m.cox))[c(2,1,3)]
+  
+  est.cox.filename <- "mcox_cause2_est.csv"
+  var.cox.filename <- "mcox_cause2_var.csv"
+  
+  write.table(
+    cbind(iter=iter, t(est.cox)), file=est.cox.filename,
+    append=file.exists(est.cox.filename), quote=F, sep=",",
+    row.names=F, col.names=!file.exists(est.cox.filename)
+  )
+  
+  write.table(
+    cbind(iter=iter, t(var.cox)), file=var.cox.filename,
+    append=file.exists(var.cox.filename), quote=F, sep=",",
+    row.names=F, col.names=!file.exists(var.cox.filename)
+  )
+  
+  H0.hat <- basehaz(m.cox, centered=F)
+  saveRDS(H0.hat, file=paste0("./basehaz/basehaz_cause2_iter", iter, ".rds"), compress="bzip2")
+  
+  # saveRDS(m.cox, file=paste0("./models/mcox_cause2_iter", iter, ".rds"), compress="bzip2")
 }
 
 
 
-print(paste0(Sys.time(), ": Starting Poisson analysis"))
-
-## Poisson analysis
-system.time(m.pois <- glm(
-  N.bar ~ -1 + factor(r) + v + c,
-  data = dat,
-  subset = (state.prev <= 3),
-  family = poisson
-))
-
-est.pois <- coef(m.pois)
-var.pois <- diag(vcov(m.pois))
-
-nparam <- length(est.pois)
-est.pois <- c(
-  est.pois[1:(nparam-2)],
-  rep(NA, R-(nparam-2)),
-  est.pois[nparam - (1:0)]
-)
-var.pois <- c(
-  var.pois[1:(nparam-2)],
-  rep(NA, R-(nparam-2)),
-  var.pois[nparam - (1:0)]
-)
-
-# vcov.pois <- sandwich::vcovHC(m.pois, type="HC0") # robust variance
-
-est.pois.filename <- "mpois_est.csv"
-var.pois.filename <- "mpois_var.csv"
-
-write.table(
-  cbind(iter=r, t(est.pois)), file=est.pois.filename,
-  append=file.exists(est.pois.filename), quote=F, sep=",",
-  row.names=F, col.names=!file.exists(est.pois.filename)
-)
-
-write.table(
-  cbind(iter=r, t(var.pois)), file=var.pois.filename,
-  append=file.exists(var.pois.filename), quote=F, sep=",",
-  row.names=F, col.names=!file.exists(var.pois.filename)
-)
-
-# saveRDS(m.pois, file=paste0("./models/mpois_iter", r, ".rds"))
 
 
 
-print(paste0(Sys.time(), ": Starting Cox analysis"))
 
-## Cox analysis
-system.time(m.cox <- coxph(
-  Surv(u.prev, u, N.bar) ~ v + c,
-  data = dat, subset = (state.prev <= 3),
-  method = "breslow"
-))
-# Takes a few seconds
-
-est.cox <- coef(m.cox)
-var.cox <- diag(vcov(m.cox))
-
-est.cox.filename <- "mcox_est.csv"
-var.cox.filename <- "mcox_var.csv"
-
-write.table(
-  cbind(iter=r, t(est.cox)), file=est.cox.filename,
-  append=file.exists(est.cox.filename), quote=F, sep=",",
-  row.names=F, col.names=!file.exists(est.cox.filename)
-)
-
-write.table(
-  cbind(iter=r, t(var.cox)), file=var.cox.filename,
-  append=file.exists(var.cox.filename), quote=F, sep=",",
-  row.names=F, col.names=!file.exists(var.cox.filename)
-)
-
-# saveRDS(m.cox, file=paste0("./models/mcox_iter", r, ".rds"))
 
