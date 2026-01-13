@@ -6,6 +6,7 @@ source("./with-symptoms/source.R")
 ###############################################################################
 # MODELLING RESULTS
 ###############################################################################
+## Cox
 est.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_est.csv")
 names(est.cox) <- c("iter","x1","x3","v")
 est.cox <- est.cox[order(est.cox$iter),]
@@ -24,7 +25,6 @@ var.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_var.csv")
 names(var.cox) <- c("iter","x1","x3","v")
 var.cox <- var.cox[order(var.cox$iter),]
 
-
 get.coverage <- Vectorize(function(est, se, target, conf.level=0.95) {
   crit <- qnorm(conf.level + (1-conf.level)/2)
   return(as.numeric(est - crit*se <= target && target <= est + crit*se))
@@ -33,6 +33,7 @@ get.coverage <- Vectorize(function(est, se, target, conf.level=0.95) {
 mean(get.coverage(est.cox$x1, sqrt(var.cox$x1), beta2[1])) # nsim=1000
 mean(get.coverage(est.cox$x3, sqrt(var.cox$x3), beta2[3]))
 mean(get.coverage(est.cox$v, sqrt(var.cox$v), gamma2))
+
 
 # Check baseline hazard estimates
 basehaz.list <- lapply(1:nsim, function(iter) {
@@ -64,5 +65,34 @@ plot(hazard ~ time, data=basehaz, type="s")
 truehaz <- Vectorize(function(tt) { (rho2*tt)^kap2 })
 curve(truehaz, from=0, to=1, col="red", add=T)
 # save as basehaz.png with width=500, height=450
+
+
+
+## Binomial (logistic)
+est.logis <- read.csv(
+  "./with-symptoms/sim-results/mlogis_cause2_est.csv",
+  fill = T, col.names=c("iter","x1","x3","v", paste0("j", 1:((A+tau)*J)))
+)
+est.logis <- est.logis[order(est.logis$iter),]
+
+hist(est.logis$x1, main="", xlab=expression(hat(beta)[21]))
+abline(v=c(mean(est.logis$x1), beta2[1]), col=c("black","red"), lty=2, lwd=2)
+
+hist(est.logis$x3, main="", xlab=expression(hat(beta)[23]))
+abline(v=c(mean(est.logis$x3), beta2[3]), col=c("black","red"), lty=2, lwd=2)
+
+hist(est.logis$v, main="", xlab=expression(hat(gamma)[2]))
+abline(v=c(mean(est.logis$v), gamma2), col=c("black","red"), lty=2, lwd=2)
+
+
+var.logis <- read.csv(
+  "./with-symptoms/sim-results/mlogis_cause2_var.csv",
+  fill = TRUE, col.names = c("iter","x1","x3","v", paste0("j", 1:((A+tau)*J)))
+)
+var.logis <- var.logis[order(var.logis$iter),]
+
+mean(get.coverage(est.logis$x1, sqrt(var.logis$x1), beta2[1])) # nsim=1000
+mean(get.coverage(est.logis$x3, sqrt(var.logis$x3), beta2[3]))
+mean(get.coverage(est.logis$v, sqrt(var.logis$v), gamma2))
 
 

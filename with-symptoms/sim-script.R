@@ -1,24 +1,28 @@
 
 args <- commandArgs(trailingOnly=TRUE)
 start.iter <- as.numeric(args[1])
-model.type <- args[2]
+iter.jump <- as.numeric(args[2])
+datagen.method <- args[3]
+model.type <- args[4]
 
-iter.jump <- 10
 stop.iter <- start.iter + iter.jump - 1
 
-library(survival)
+if (model.type == "cox") {
+  library(survival)
+}
 
 source("source.R")
 source("datagen.R")
 
 sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
-.Random.seed <- sim.seeds[[(start.iter %/% iter.jump) + 1]] # 1 -> 1st seed, 11 -> 2nd, 21 -> 3rd, ...
+.Random.seed <- sim.seeds[[(start.iter %/% iter.jump) + 1]]
+# For iter.jump=10: start.iter=1 -> 1st seed, 11 -> 2nd, 21 -> 3rd, ...
 
 
 
 for (iter in start.iter:stop.iter) {
   print(paste0(Sys.time(), ": Starting iter ", iter))
-  system.time(dat <- generate.data())
+  system.time(dat <- generate.data(datagen.method, print.increment=1))
   
   # ## Features of the data, to be saved later
   # v.full <- tapply(dat$v, dat$i, function(x) x[1])
@@ -79,7 +83,7 @@ for (iter in start.iter:stop.iter) {
     )
     dat.discrete <- do.call(data.frame, dat.discrete)
     
-    if (model.type == "binom") {
+    if (model.type == "logis") {
       m.logis <- glm(
         cbind(Z2.y, Z2.m - Z2.y) ~ -1 + factor(j) + factor(E.prev) + v,
         data = dat.discrete, family = binomial
