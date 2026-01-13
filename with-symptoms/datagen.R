@@ -227,7 +227,7 @@ get.exit.info <- function(j, max.idx, cc, b.start, v, state, method) {
     if (any(exit.states != state)) {
       is.exit <- T
       exit.idx <- j-1 + min(which(exit.states != state)) # next time when not in current state
-      exit.state <- exit.states[exit.idx - (j-1)]          # state occupied at that time
+      exit.state <- exit.states[exit.idx - (j-1)]        # state occupied at that time
     } else {
       is.exit <- F
       exit.idx <- exit.state <- NA
@@ -305,23 +305,25 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
   i.late.exit <- setdiff(which(first.exit.time <= select.age + tau), i.exit)
   i.noexit <- setdiff(1:n, c(i.exit, i.late.exit))
   
-  # For those who did not exit (0^\circ, 0) by selection, randomly determine whether to select them
-  is.select0 <- rep(NA, n)
-  is.select0[-i.exit] <- as.logical(rbinom(n=n-length(i.exit), size=1, prob=p0))
+  # # For those who did not exit (0^\circ, 0) by selection, randomly determine whether to select them
+  # is.select0 <- rep(NA, n)
+  # is.select0[-i.exit] <- as.logical(rbinom(n=n-length(i.exit), size=1, prob=p0))
   
   if (method == "cts") {
     # Identify which state was entered first after leaving (0^\circ, 0)
     first.exit.state <- rep(NA, n)
-    first.exit.state[i.exit] <- get.first.exit.state(first.exit.time[i.exit], v.full[i.exit])
-    
-    i.late.exit.select <- intersect(i.late.exit, which(is.select0))
-    first.exit.state[i.late.exit.select] <- get.first.exit.state(
-      first.exit.time[i.late.exit.select], v.full[i.late.exit.select]
-    )
+    first.exit.state <- get.first.exit.state(first.exit.time, v.full)
+    # first.exit.state[i.exit] <- get.first.exit.state(first.exit.time[i.exit], v.full[i.exit])
+    # 
+    # i.late.exit.select <- intersect(i.late.exit, which(is.select0))
+    # first.exit.state[i.late.exit.select] <- get.first.exit.state(
+    #   first.exit.time[i.late.exit.select], v.full[i.late.exit.select]
+    # )
   }
   
-  i.smoke <- which(first.exit.state == 5 & first.exit.time <= select.age)
-  i.select <- sort(c(which(is.select0), i.smoke))
+  # i.smoke <- which(first.exit.state == 5 & first.exit.time <= select.age)
+  # i.select <- sort(c(which(is.select0), i.smoke))
+  i.select <- 1:n
   
   print(paste0(Sys.time(), ": Generating follow-up data ..."))
   dat <- as.data.frame(data.table::rbindlist(lapply(i.select, function(i) {
@@ -336,7 +338,7 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
       select.age = select.age[i],
       v = v,
       j = 1:max.idx,
-      u = 1:max.idx/J,
+      u = (1:max.idx)/J,
       E = NA,
       Z = NA,
       state.prev = NA,
@@ -368,13 +370,14 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
       
       j <- first.exit.idx[i] + 1
       
-      # For those who start smoking by selection, we still need to know if they're in (1,0) at selection
-      if (i %in% i.smoke) {
-        select.j <- ceiling(select.age[i] * J)
-        is.select <- F
-      } else {
-        is.select <- T
-      }
+      # # For those who start smoking by selection, we still need to know if they're in (1,0) at selection
+      # if (i %in% i.smoke) {
+      #   select.j <- ceiling(select.age[i] * J)
+      #   is.select <- F
+      # } else {
+      #   is.select <- T
+      # }
+      is.select <- T
       
       while (Z %in% c(0,10) && j <= max.idx) { # Z=10 means Z=1'
         exit.info <- get.exit.info(j, max.idx, cc, b, v, state, method)

@@ -1,6 +1,12 @@
 
 logit <- Vectorize(function(p) { log(p/(1-p)) })
 
+get.coverage <- Vectorize(function(est, se, target, conf.level=0.95) {
+  crit <- qnorm(conf.level + (1-conf.level)/2)
+  return(as.numeric(est - crit*se <= target && target <= est + crit*se))
+}, vectorize.args=c("est", "se"))
+
+#######################################
 # time/age scale: 1 unit time = 100 years
 time.scale <- 100
 

@@ -7,10 +7,11 @@ source("./with-symptoms/source.R")
 # MODELLING RESULTS
 ###############################################################################
 ## Cox
-est.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_est.csv")
+est.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_est_v2.csv")
 names(est.cox) <- c("iter","x1","x3","v")
 est.cox <- est.cox[order(est.cox$iter),]
 
+par(mfrow=c(1,3))
 hist(est.cox$x1, main="", xlab=expression(hat(beta)[21]))
 abline(v=c(mean(est.cox$x1), beta2[1]), col=c("black","red"), lty=2, lwd=2)
 
@@ -20,19 +21,15 @@ abline(v=c(mean(est.cox$x3), beta2[3]), col=c("black","red"), lty=2, lwd=2)
 hist(est.cox$v, main="", xlab=expression(hat(gamma)[2]))
 abline(v=c(mean(est.cox$v), gamma2), col=c("black","red"), lty=2, lwd=2)
 
-
-var.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_var.csv")
+var.cox <- read.csv("./with-symptoms/sim-results/mcox_cause2_var_v2.csv")
 names(var.cox) <- c("iter","x1","x3","v")
 var.cox <- var.cox[order(var.cox$iter),]
 
-get.coverage <- Vectorize(function(est, se, target, conf.level=0.95) {
-  crit <- qnorm(conf.level + (1-conf.level)/2)
-  return(as.numeric(est - crit*se <= target && target <= est + crit*se))
-}, vectorize.args=c("est", "se"))
+coverage.cox <- merge(est.cox, var.cox, by="iter", suffixes=c(".est", ".var"))
 
-mean(get.coverage(est.cox$x1, sqrt(var.cox$x1), beta2[1])) # nsim=1000
-mean(get.coverage(est.cox$x3, sqrt(var.cox$x3), beta2[3]))
-mean(get.coverage(est.cox$v, sqrt(var.cox$v), gamma2))
+mean(get.coverage(coverage.cox$x1.est, sqrt(coverage.cox$x1.var), beta2[1])) # nsim=1000
+mean(get.coverage(coverage.cox$x3.est, sqrt(coverage.cox$x3.var), beta2[3]))
+mean(get.coverage(coverage.cox$v.est, sqrt(coverage.cox$v.var), gamma2))
 
 
 # Check baseline hazard estimates
@@ -69,8 +66,10 @@ curve(truehaz, from=0, to=1, col="red", add=T)
 
 
 ## Binomial (logistic)
+datagen.method <- "discrete"
+
 est.logis <- read.csv(
-  "./with-symptoms/sim-results/mlogis_cause2_est.csv",
+  paste0("./with-symptoms/sim-results/", datagen.method, "-datagen/mlogis_cause2_est.csv"),
   fill = T, col.names=c("iter","x1","x3","v", paste0("j", 1:((A+tau)*J)))
 )
 est.logis <- est.logis[order(est.logis$iter),]
@@ -84,15 +83,16 @@ abline(v=c(mean(est.logis$x3), beta2[3]), col=c("black","red"), lty=2, lwd=2)
 hist(est.logis$v, main="", xlab=expression(hat(gamma)[2]))
 abline(v=c(mean(est.logis$v), gamma2), col=c("black","red"), lty=2, lwd=2)
 
-
 var.logis <- read.csv(
-  "./with-symptoms/sim-results/mlogis_cause2_var.csv",
+  paste0("./with-symptoms/sim-results/", datagen.method, "-datagen/mlogis_cause2_var.csv"),
   fill = TRUE, col.names = c("iter","x1","x3","v", paste0("j", 1:((A+tau)*J)))
 )
 var.logis <- var.logis[order(var.logis$iter),]
 
-mean(get.coverage(est.logis$x1, sqrt(var.logis$x1), beta2[1])) # nsim=1000
-mean(get.coverage(est.logis$x3, sqrt(var.logis$x3), beta2[3]))
-mean(get.coverage(est.logis$v, sqrt(var.logis$v), gamma2))
+coverage.logis <- merge(est.logis[,1:4], var.logis[,1:4], by="iter", suffixes=c(".est", ".var"))
+
+mean(get.coverage(coverage.logis$x1.est, sqrt(coverage.logis$x1.var), beta2[1])) # nsim=1000
+mean(get.coverage(coverage.logis$x3.est, sqrt(coverage.logis$x3.var), beta2[3]))
+mean(get.coverage(coverage.logis$v.est, sqrt(coverage.logis$v.var), gamma2))
 
 
