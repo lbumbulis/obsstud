@@ -29,10 +29,10 @@ gamma1 <- log(1.1)
 beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1.02, 1))
 gamma2 <- log(1.2)
 
-# Temporary simplification # TODO: remove
-beta1p[2] <- beta1[2] <- beta2[2] <- 0
+## Temporary simplification # TODO: remove
+# beta1p[2] <- beta1[2] <- beta2[2] <- 0
 beta1p[4:(nvar-2)] <- beta1[4:(nvar-2)] <- 0
-beta1[nvar-1] <- beta2[nvar-1] <- 0
+# beta1[nvar-1] <- beta2[nvar-1] <- 0
 
 ## Baseline intensities
 # Lung cancer-free death

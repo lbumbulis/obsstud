@@ -364,9 +364,9 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
       state <- first.exit.state[i]
       E <- get.E.for.state(state)
       Z <- get.Z.for.state(state)
+      fill.dat(first.exit.idx[i], E, Z, state.prev=1, state=state, c=0, b=Inf)
       cc <- 0
-      b <- ifelse(E==-1, Inf, 0)
-      fill.dat(first.exit.idx[i], E, Z, state.prev=1, state=state, c=cc, b=b)
+      b <- 0
       
       j <- first.exit.idx[i] + 1
       
@@ -394,6 +394,7 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
                 j:(exit.idx-1), E=E, Z=Z, state.prev=state, state=state, c=cc, b=b
               )
             }
+            b <- 0
           } else if (E == 1) { # currently smoking
             if (exit.idx > j) {
               fill.dat(
@@ -403,7 +404,7 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
                 b = 0
               )
             }
-            cc <- cc + (exit.idx - j)/J
+            cc <- cc + (exit.idx - j + 1)/J
             b <- ifelse(get.E.for.state(exit.state)==1, b, 0)
           } else if (E == 0) { # previously smoked
             if (exit.idx > j) {
@@ -413,7 +414,7 @@ generate.data <- function(method, n=nn, is.discrete.surv=F, print.increment=100)
                 b = b + seq(1/J, by=1/J, length.out=exit.idx-j)
               )
             }
-            b <- b + (exit.idx - j)/J
+            b <- b + (exit.idx - j + 1)/J
           }
           
           E <- get.E.for.state(exit.state)
