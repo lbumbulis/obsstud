@@ -5,6 +5,7 @@ iter.jump <- as.numeric(args[2])
 cause <- as.numeric(args[3])
 datagen.method <- args[4]
 model.type <- args[5]
+is.correct <- as.logical(args[6])
 
 stop.iter <- start.iter + iter.jump - 1
 
@@ -54,12 +55,21 @@ for (iter in start.iter:stop.iter) {
       fail.times <- unique(dat.sub$j[which(dat.sub$Z==1)])
       dat.cox <- dat.sub[which(dat.sub$j %in% fail.times),] # only need data from times when someone fails
       
-      m.cox <- coxph(
-        Surv(u.prev, u, Z1) ~ factor(E.prev) + x6 + v,
-        data = dat.cox, method = "breslow"
-      )
-      coef.est <- coef(m.cox)[c(2,1,3,4)]
-      coef.var <- diag(vcov(m.cox))[c(2,1,3,4)]
+      if (is.correct) {
+        m.cox <- coxph(
+          Surv(u.prev, u, Z1) ~ factor(E.prev) + x6 + v,
+          data = dat.cox, method = "breslow"
+        )
+        coef.est <- coef(m.cox)[c(2,1,3,4)]
+        coef.var <- diag(vcov(m.cox))[c(2,1,3,4)]
+      } else {
+        m.cox <- coxph(
+          Surv(u.prev, u, Z1) ~ factor(E.prev) + v,
+          data = dat.cox, method = "breslow"
+        )
+        coef.est <- coef(m.cox)[c(2,1,3)]
+        coef.var <- diag(vcov(m.cox))[c(2,1,3)]
+      }
       
     } else if (cause == 2) {
       dat.sub <- dat.sub[-which(dat.sub$Z.prev==10),] # not at risk for -> 2 once symptoms develop
