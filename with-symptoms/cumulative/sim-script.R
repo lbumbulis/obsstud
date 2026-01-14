@@ -37,19 +37,20 @@ for (iter in start.iter:stop.iter) {
       Surv(u.prev, u, Z1) ~ factor(E.prev) + x2 + x5 + x6 + v,
       data = dat.cox, method = "breslow"
     )
-    coef.est <- coef(m.cox)[c(2,1,3:6)]
-    coef.var <- diag(vcov(m.cox))[c(2,1,3:6)]
+    coef.est <- coef(m.cox)[c(2,3,1,4:6)]
+    coef.var <- diag(vcov(m.cox))[c(2,3,1,4:6)]
   } else {
     m.cox <- coxph(
       Surv(u.prev, u, Z1) ~ factor(E.prev) + x2 + x5 + v,
       data = dat.cox, method = "breslow"
     )
-    coef.est <- coef(m.cox)[c(2,1,3:5)]
-    coef.var <- diag(vcov(m.cox))[c(2,1,3:5)]
+    coef.est <- coef(m.cox)[c(2,3,1,4,5)]
+    coef.var <- diag(vcov(m.cox))[c(2,3,1,4,5)]
   }
   
-  coef.est.filename <- paste0("mcox_cause1_est.csv")
-  coef.var.filename <- paste0("mcox_cause1_var.csv")
+  suffix <- ifelse(is.correct, "", "_incorrect")
+  coef.est.filename <- paste0("mcox_cause1_est", suffix, ".csv")
+  coef.var.filename <- paste0("mcox_cause1_var", suffix, ".csv")
   
   H0.hat <- basehaz(m.cox, centered=F)
   saveRDS(H0.hat, file=paste0("./basehaz/basehaz_cause1_iter", iter, ".rds"), compress="bzip2")
