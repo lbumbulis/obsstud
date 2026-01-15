@@ -60,10 +60,10 @@ names(est.cox) <- c("iter", paste0("x", c(1:3,5)),"v")
 est.cox <- est.cox[order(est.cox$iter),]
 
 old.par <- par(mfrow=c(2, 3), mar=c(5,4,1,1))
-hist(est.cox$x1, main="", xlab=expression(hat(beta)[11]))
+hist(est.cox$x1, main="", xlab=expression(hat(beta)[11]), xlim=c(min(est.cox$x1), beta1[1]))
 abline(v=c(mean(est.cox$x1), beta1[1]), col=c("black","red"), lty=2, lwd=2)
 
-hist(est.cox$x2, main="", xlab=expression(hat(beta)[12]))
+hist(est.cox$x2, main="", xlab=expression(hat(beta)[12]), xlim=c(beta1[2], max(est.cox$x2)))
 abline(v=c(mean(est.cox$x2), beta1[2]), col=c("black","red"), lty=2, lwd=2)
 
 hist(est.cox$x3, main="", xlab=expression(hat(beta)[13]))
