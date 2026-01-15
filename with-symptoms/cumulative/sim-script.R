@@ -19,7 +19,7 @@ sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
 
 for (iter in start.iter:stop.iter) {
   print(paste0(Sys.time(), ": Starting iter ", iter))
-  system.time(dat <- generate.data(method="cts", print.increment=1))
+  system.time(dat <- generate.data())
   
   if (iter==1) {
     saveRDS(dat, file="test_dat_iter1.rds", compress="bzip2")
@@ -34,19 +34,19 @@ for (iter in start.iter:stop.iter) {
   
   if (is.correct) {
     m.cox <- coxph(
-      Surv(u.prev, u, Z1) ~ factor(E.prev) + x2 + x5 + x6 + v,
+      Surv(u.prev, u, Z1) ~ x1 + x2 + x3:B + x4 + v,
       data = dat.cox, method = "breslow"
     )
-    coef.est <- coef(m.cox)[c(2,3,1,4:6)]
-    coef.var <- diag(vcov(m.cox))[c(2,3,1,4:6)]
+    coef.order <- c(1:3, (1:RB)+nvar-RB+1, 4:5)
   } else {
     m.cox <- coxph(
-      Surv(u.prev, u, Z1) ~ factor(E.prev) + x2 + x5 + v,
+      Surv(u.prev, u, Z1) ~ x1 + x2 + x3:B + v,
       data = dat.cox, method = "breslow"
     )
-    coef.est <- coef(m.cox)[c(2,3,1,4,5)]
-    coef.var <- diag(vcov(m.cox))[c(2,3,1,4,5)]
+    coef.order <- c(1:3, (1:RB)+nvar-RB, 4)
   }
+  coef.est <- coef(m.cox)[coef.order]
+  coef.var <- diag(vcov(m.cox))[coef.order]
   
   suffix <- ifelse(is.correct, "", "_incorrect")
   coef.est.filename <- paste0("mcox_cause1_est", suffix, ".csv")

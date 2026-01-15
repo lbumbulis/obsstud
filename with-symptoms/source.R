@@ -13,26 +13,21 @@ time.scale <- 100
 tau <- 50/time.scale # at most 50 years of follow-up from selection date
 pv <- 1/2
 
-RB <- 10 # number of intervals for quit backward recurrence time b(t)
-b.breaks <- seq(0, (RB-1)/time.scale, length.out=RB) # breaks defining the intervals
+b.breaks <- c(0, 5, 10) / time.scale
+RB <- length(b.breaks)
 
-nvar <- RB + 5 # number of parameters in each of alpha and beta
+nvar <- RB + 4 # number of parameters in each of alpha and beta
 
 ###### DISEASE PROCESS ################
 ## Covariate coefficients
-beta1p <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB))/RB), 1, 1))
+beta1p <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 1))
 gamma1p <- log(1.1)
 
-beta1 <- log(c(1.2, 1.05, 1.05, 1.05^((RB-(1:RB))/RB), 1.05, 10)) # consider increasing the 10 to 20
+beta1 <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 20))
 gamma1 <- log(1.1)
 
-beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1.02, 1))
+beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1))
 gamma2 <- log(1.2)
-
-## Temporary simplification # TODO: remove
-# beta1p[2] <- beta1[2] <- beta2[2] <- 0
-beta1p[4:(nvar-2)] <- beta1[4:(nvar-2)] <- 0
-# beta1[nvar-1] <- beta2[nvar-1] <- 0
 
 ## Baseline intensities
 # Lung cancer-free death
@@ -95,10 +90,10 @@ lam1p.fn <- Vectorize(function(tt) { rho*lam1.fn(tt) })
 ## Covariate coefficients
 eta1c <- log(1.2) # TODO: Check this
 
-alpha1 <- log(c(1, 1, 1, rep(1,RB), 1, 1))
+alpha1 <- log(c(1, 1, 1, rep(1,RB), 1))
 eta1 <- log(1.2)
 
-alpha0 <- log(c(1, 1, 1, rep(1,RB), 1, 100)) # 10, 20 are too low
+alpha0 <- log(c(1, 1, 1, rep(1,RB), 100)) # 10, 20 are too low
 eta0 <- log(0.8)
 
 ## Baseline intensities
@@ -145,8 +140,8 @@ L.birth <- 0             # left endpoint of birth cohort (can think of as 1920)
 R.birth <- 30/time.scale # right endpoint (1950)
 A <- 70/time.scale       # sampling date (1990)
 
-p0 <- 0.5 # prob of selecting individual who is in (0^\circ, 0) at selection time
-p1 <- 1     # prob of selecting individual who is in (1,0) at selection time
+# p0 <- 0.5 # prob of selecting individual who is in (0^\circ, 0) at selection time
+# p1 <- 1     # prob of selecting individual who is in (1,0) at selection time
 
 ###### SIMULATION PARAMETERS ##########
 J <- 1000 # 1/J is the increment used to discretize time
