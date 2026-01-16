@@ -367,6 +367,7 @@ generate.data <- function(n=nn, print.increment=100) {
   dat$r <- dat$j - as.integer(ceiling(dat$select.age * J))
   
   dat$Z1 <- as.numeric(dat$Z==1)
+  dat$Z10 <- as.numeric(dat$Z==10)
   dat$Z2 <- as.numeric(dat$Z==2)
   
   dat$x1 <- factor(as.character(dat$E.prev), levels=c(-1,1,0))
