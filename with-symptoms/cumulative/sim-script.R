@@ -52,8 +52,8 @@ for (iter in start.iter:stop.iter) {
   coef.est.filename <- paste0("mcox_cause1_est", suffix, ".csv")
   coef.var.filename <- paste0("mcox_cause1_var", suffix, ".csv")
   
-  H0.hat <- basehaz(m.cox, centered=F)
-  saveRDS(H0.hat, file=paste0("./basehaz/basehaz_cause1_iter", iter, ".rds"), compress="bzip2")
+  # H0.hat <- basehaz(m.cox, centered=F)
+  # saveRDS(H0.hat, file=paste0("./basehaz/basehaz_cause1_iter", iter, ".rds"), compress="bzip2")
   
   write.table(
     cbind(iter=iter, t(coef.est)), file=coef.est.filename,

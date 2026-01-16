@@ -88,7 +88,7 @@ lam1p.fn <- Vectorize(function(tt) { rho*lam1.fn(tt) })
 
 ###### SMOKING PROCESS ################
 ## Covariate coefficients
-eta1c <- log(1.2) # TODO: Check this
+eta1c <- log(1.2)
 
 alpha1 <- log(c(1, 1, 1, rep(1,RB), 1))
 eta1 <- log(1.2)

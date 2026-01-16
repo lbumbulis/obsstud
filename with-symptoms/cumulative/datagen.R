@@ -107,9 +107,9 @@ get.exit.info <- function(j, max.idx, cc, b.start, v, state) {
   
   surv.prob <- runif(1)
   
-  integrand.1p <- Vectorize(function(u) { lam1p.fn(u) * exp(beta1p[2]*u*time.scale) })
-  integrand.1 <- Vectorize(function(u) { lam1.fn(u) * exp(beta1[2]*u*time.scale) })
-  integrand.2 <- Vectorize(function(u) { lam2.fn(u) * exp(beta2[2]*u*time.scale) })
+  integrand.1p <- Vectorize(function(u) { lam1p.fn(u) * exp(beta1p[3]*u*time.scale) })
+  integrand.1 <- Vectorize(function(u) { lam1.fn(u) * exp(beta1[3]*u*time.scale) })
+  integrand.2 <- Vectorize(function(u) { lam2.fn(u) * exp(beta2[3]*u*time.scale) })
   
   tt <- (j-1)/J
   get.x3.idx <- function(u) {
@@ -175,7 +175,7 @@ get.exit.info <- function(j, max.idx, cc, b.start, v, state) {
     
     # Determine exit state
     if (E==1) {
-      x[3] <- (cc + exit.time - tt) * time.scale # x_{12}
+      x[3] <- (cc + exit.time - tt) * time.scale # x2
     } else if (E==0) {
       r <- get.x3.idx(exit.time)
       x3 <- rep(0, RB)
