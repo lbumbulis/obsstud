@@ -175,11 +175,7 @@ get.exit.info <- function(j, max.idx, cc, b.start, v, state) {
     
     # Determine exit state
     if (E==1) {
-<<<<<<< HEAD
       x[3] <- (cc + exit.time - tt) * time.scale # x2
-=======
-      x[3] <- (cc + exit.time - tt) * time.scale # x_{12}
->>>>>>> 7d95c0a8c71d86a947d1b72107720fbd3da93222
     } else if (E==0) {
       r <- get.x3.idx(exit.time)
       x3 <- rep(0, RB)
