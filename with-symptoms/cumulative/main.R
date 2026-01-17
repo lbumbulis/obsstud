@@ -71,8 +71,10 @@ data.frame(
 #######################################
 ## Incorrect model (omit symptoms)
 #######################################
+covariate.names <- c(paste0("x", c("1.1","1.2",2, paste0("3.", 1:RB))),"v")
+
 est.cox <- read.csv("./with-symptoms/cumulative/sim-results/mcox_cause1_est_incorrect.csv")
-names(est.cox) <- c("iter", paste0("x", c("1.1","1.2",2, paste0("3.", 1:RB))),"v")
+names(est.cox) <- c("iter", covariate.names)
 est.cox <- est.cox[order(est.cox$iter),]
 
 # EBias
@@ -103,7 +105,7 @@ abline(v=c(mean(est.cox$v), gamma1), col=c("black","red"), lty=2, lwd=2)
 par(old.par)
 
 var.cox <- read.csv("./with-symptoms/cumulative/sim-results/mcox_cause1_var_incorrect.csv")
-names(var.cox) <- c("iter", paste0("x", c("1.1","1.2",2, paste0("3.", 1:RB))),"v")
+names(var.cox) <- c("iter", covariate.names)
 var.cox <- var.cox[order(var.cox$iter),]
 
 # ASE
@@ -123,6 +125,13 @@ data.frame(
     mean(get.coverage(coverage.cox$v.est, sqrt(coverage.cox$v.var), gamma1))
   )
 )
+
+var.cox.robust <- read.csv("./with-symptoms/cumulative/sim-results/mcox_cause1_var_incorrect_robust.csv")
+names(var.cox.robust) <- c("iter", covariate.names)
+var.cox.robust <- var.cox.robust[order(var.cox.robust$iter),]
+
+# ASE
+round(apply(var.cox.robust[,2:ncol(var.cox.robust)], 2, function(x) { mean(sqrt(x)) }), 3)
 
 #######################################
 # Correct model (analyze symptom onset)
