@@ -10,6 +10,8 @@ n <- nn
 .Random.seed <- sim.seeds[[1]]
 system.time(dat <- generate.data(n))
 
+dat <- readRDS("./with-symptoms/cumulative/sim-results/v1/test_dat_iter1.rds")
+
 ## ETM
 library(etm)
 
@@ -119,9 +121,10 @@ plot.AJ <- function(type) {
     lung.prob <- tra.df$state3 + tra.df$state7 + tra.df$state11
     lung.prob.eversmoke <- tra.df$state7 + tra.df$state11
     
-    ymax <- 0.7
+    ymax <- 0.2 # 0.7 for v2
+    y.jump <- ifelse(ymax==0.2, 0.025, 0.1)
     plot(age, lung.prob, type="n", xlab=xlab, ylab=ylab, ylim=c(0, ymax))
-    abline(h=seq(0, ymax, by=0.1), col=grid.colour)
+    abline(h=seq(0, ymax, by=y.jump), col=grid.colour)
     abline(v=seq(0, 120, by=10), col=grid.colour)
     lines(age, lung.prob, type="s", lwd=lwd)
     lines(age, lung.prob.eversmoke, type="s", lty=2, lwd=lwd)
@@ -244,10 +247,10 @@ c.y <- mean.c$c[idx.c] * time.scale
 old.par <- par(mar=c(5,6,1,1))
 
 plot(
-  c.x, c.y, type="n", xlab="AGE", # cex.axis=0.8,
+  c.x, c.y, type="n", ylim=c(0,25), xlab="AGE", # cex.axis=0.8,
   ylab=expression(atop("MEAN CUMULATIVE TIME AS", "CURRENT SMOKER (YEARS)"))
 )
-abline(h=seq(0, 20, by=2.5), col=grid.colour)
+abline(h=seq(0, 50, by=2.5), col=grid.colour)
 abline(v=seq(0, 120, by=10), col=grid.colour)
 lines(c.x, c.y, type="s")
 
