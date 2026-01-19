@@ -20,15 +20,13 @@ nvar <- RB + 4 # number of parameters in each of alpha and beta
 
 ###### DISEASE PROCESS ################
 ## Covariate coefficients
-# beta1p <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 1)) # v1
-beta1p <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 1))     # v2
+beta1p <- log(c(1, 1, 1.2, 1.2^((RB-(1:RB))/RB), 1))
 gamma1p <- log(1.1)
 
-# beta1 <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 20)) # v1
-beta1 <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 10))     # v2
+beta1 <- log(c(1, 1, 1.2, 1.2^((RB-(1:RB))/RB), 10))
 gamma1 <- log(1.1)
 
-beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1))
+beta2 <- log(c(1, 1, 1.02, rep(1,RB), 1))
 gamma2 <- log(1.2)
 
 ## Baseline intensities
@@ -95,8 +93,7 @@ eta1c <- log(1.2)
 alpha1 <- log(c(1, 1, 1, rep(1,RB), 1))
 eta1 <- log(1.2)
 
-# alpha0 <- log(c(1, 1, 1, rep(1,RB), 100)) # v1
-alpha0 <- log(c(1, 1, 1, rep(1,RB), 30))    # v2
+alpha0 <- log(c(1, 1, 1, rep(1,RB), 30))
 eta0 <- log(0.8)
 
 ## Baseline intensities
@@ -143,11 +140,8 @@ L.birth <- 0             # left endpoint of birth cohort (can think of as 1920)
 R.birth <- 30/time.scale # right endpoint (1950)
 A <- 70/time.scale       # sampling date (1990)
 
-# p0 <- 0.5 # prob of selecting individual who is in (0^\circ, 0) at selection time
-# p1 <- 1     # prob of selecting individual who is in (1,0) at selection time
-
 ###### SIMULATION PARAMETERS ##########
-J <- 1000 # 1/J is the increment used to discretize time
+J <- 2000 # 1/J is the increment used to discretize time
 
 nn <- 10^4   # super-sample size
 nsim <- 1000 # number of simulation replicates
