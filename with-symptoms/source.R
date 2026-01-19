@@ -20,10 +20,12 @@ nvar <- RB + 4 # number of parameters in each of alpha and beta
 
 ###### DISEASE PROCESS ################
 ## Covariate coefficients
-beta1p <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 1))
+# beta1p <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 1)) # v1
+beta1p <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 1))     # v2
 gamma1p <- log(1.1)
 
-beta1 <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 10))
+# beta1 <- log(c(1.4, 1.2, 1.05, 1.05^((RB-(1:RB))/RB), 20)) # v1
+beta1 <- log(c(1.2, 1.1, 1.2, 1.2^((RB-(1:RB))/RB), 10))     # v2
 gamma1 <- log(1.1)
 
 beta2 <- log(c(1.05, 1.02, 1.02, rep(1,RB), 1))
@@ -93,7 +95,8 @@ eta1c <- log(1.2)
 alpha1 <- log(c(1, 1, 1, rep(1,RB), 1))
 eta1 <- log(1.2)
 
-alpha0 <- log(c(1, 1, 1, rep(1,RB), 30))
+# alpha0 <- log(c(1, 1, 1, rep(1,RB), 100)) # v1
+alpha0 <- log(c(1, 1, 1, rep(1,RB), 30))    # v2
 eta0 <- log(0.8)
 
 ## Baseline intensities

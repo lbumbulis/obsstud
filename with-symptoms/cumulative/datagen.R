@@ -193,7 +193,7 @@ get.exit.info <- function(j, max.idx, cc, b.start, v, state) {
   return(list(is.exit=is.exit, exit.idx=exit.idx, exit.state=exit.state))
 }
 
-generate.data <- function(n=nn, print.increment=100) {
+generate.data <- function(n=nn, print.increment=100, is.full=F) {
   print(paste0(Sys.time(), ": Generating v ..."))
   v.full <- rbinom(n, size=1, prob=pv)
   
@@ -356,8 +356,25 @@ generate.data <- function(n=nn, print.increment=100) {
       }
     }
     
-    dat.i$E.prev <- c(-1, dat.i$E[1:(max.idx-1)])
-    dat.i$Z.prev <- c(0, dat.i$Z[1:(max.idx-1)])
+    # Add more time points for calculating mean cumulative exposure at each time point
+    if (is.full && !(Z %in% c(0,10)) && max.idx < (A+tau)*J) {
+      dat.i <- rbind(dat.i, data.frame(
+        i = i,
+        select.age = select.age[i],
+        v = v,
+        j = max.idx:((A+tau)*J),
+        u = (max.idx:((A+tau)*J))/J,
+        E = E,
+        Z = Z,
+        state.prev = state,
+        state = state,
+        c = dat.i$c[nrow(dat.i)],
+        b = NA
+      ))
+    }
+    
+    dat.i$E.prev <- c(-1, dat.i$E[1:(nrow(dat.i)-1)])
+    dat.i$Z.prev <- c(0, dat.i$Z[1:(nrow(dat.i)-1)])
     
     return(dat.i)
   })))

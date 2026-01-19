@@ -8,9 +8,7 @@ sim.seeds <- readRDS("sim_seeds_nsim1000.rds")
 #######################################
 n <- nn
 .Random.seed <- sim.seeds[[1]]
-system.time(dat <- generate.data(n))
-
-dat <- readRDS("./with-symptoms/cumulative/sim-results/v1/test_dat_iter1.rds")
+system.time(dat <- generate.data(n, is.full=T))
 
 ## ETM
 library(etm)
@@ -199,35 +197,35 @@ plot.AJ("lung.book") # CIF-lung-book.png,  width=600, height=450
 # So we can approach cumulative time in quit state exactly as with time in the
 # smoking state ... but first we need to pad the end of the dataframe with time
 # past follow-up for those who end in an absorbing state.
-end.states <- aggregate(state ~ i, data=dat, FUN=function(x) { x[length(x)] })
-summary(factor(end.states$state))
-
-i.absorb <- unique(end.states$i[which(!(end.states$state %in% c(1,2, 5,6, 9,10)))])
-
-system.time(new.dat <- as.data.frame(data.table::rbindlist(lapply(i.absorb, function(i) {
-  if (i %% 100 == 0) { print(i) }
-  
-  dat.i <- dat[which(dat$i==i),]
-  max.ij <- max(dat.i$j)
-  max.j <- 1000
-  
-  if (max.ij==max.j) {
-    return(NULL)
-  } else {
-    max.dat.i <- dat.i[max.ij,]
-    extra.j <- (max.ij+1):max.j
-    extra.r <- seq(from=max(dat.i$r)+1, by=1, length.out=length(extra.j))
-    
-    new.dat.i <- as.data.frame(data.table::rbindlist(rep(list(max.dat.i), length(extra.j))))
-    new.dat.i$j <- extra.j
-    new.dat.i$u <- extra.j/J
-    new.dat.i$u.prev <- new.dat.i$u - 1/J
-    new.dat.i$r <- extra.r
-    return(new.dat.i)
-  }
-})))) # takes about 5min
-
-dat.full <- rbind(dat, new.dat)
+# end.states <- aggregate(state ~ i, data=dat, FUN=function(x) { x[length(x)] })
+# summary(factor(end.states$state))
+# 
+# i.absorb <- unique(end.states$i[which(!(end.states$state %in% c(1,2, 5,6, 9,10)))])
+# 
+# system.time(new.dat <- as.data.frame(data.table::rbindlist(lapply(i.absorb, function(i) {
+#   if (i %% 100 == 0) { print(i) }
+#   
+#   dat.i <- dat[which(dat$i==i),]
+#   max.ij <- max(dat.i$j)
+#   max.j <- 1000
+#   
+#   if (max.ij==max.j) {
+#     return(NULL)
+#   } else {
+#     max.dat.i <- dat.i[max.ij,]
+#     extra.j <- (max.ij+1):max.j
+#     extra.r <- seq(from=max(dat.i$r)+1, by=1, length.out=length(extra.j))
+#     
+#     new.dat.i <- as.data.frame(data.table::rbindlist(rep(list(max.dat.i), length(extra.j))))
+#     new.dat.i$j <- extra.j
+#     new.dat.i$u <- extra.j/J
+#     new.dat.i$u.prev <- new.dat.i$u - 1/J
+#     new.dat.i$r <- extra.r
+#     return(new.dat.i)
+#   }
+# })))) # takes about 5min
+# 
+# dat.full <- rbind(dat, new.dat)
 
 ## Now make the plot
 # dat.full$b.finite <- dat.full$b
@@ -238,7 +236,7 @@ dat.full <- rbind(dat, new.dat)
 # b.y <- mean.b$b.finite[idx.b] * time.scale * 365
 
 # Mean cumulative time spent smoking over time
-mean.c <- aggregate(c ~ j, data=dat.full, FUN=mean)
+mean.c <- aggregate(c ~ j, data=dat, FUN=mean)
 idx.c <- which(mean.c$j<=1000)
 c.x <- mean.c$j[idx.c] * time.scale/J
 c.y <- mean.c$c[idx.c] * time.scale
