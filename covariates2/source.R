@@ -13,7 +13,7 @@ time.scale <- 100
 tau <- 50/time.scale # at most 50 years of follow-up from selection date
 pv <- 1/2
 
-b.breaks <- c(0, 5, 10) / time.scale
+b.breaks <- c(0, 2, 10) / time.scale
 RB <- length(b.breaks)
 
 nvar <- RB + 4 # number of parameters in each of alpha and beta
@@ -141,7 +141,7 @@ R.birth <- 30/time.scale # right endpoint (1950)
 A <- 70/time.scale       # sampling date (1990)
 
 ###### SIMULATION PARAMETERS ##########
-J <- 2000 # 1/J is the increment used to discretize time
+J <- 5000 # 1/J is the increment used to discretize time
 
 nn <- 10^4   # super-sample size
 nsim <- 1000 # number of simulation replicates
